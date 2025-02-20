@@ -1,5 +1,5 @@
 {
-  "name": "icommit-ui",
+  "name": "pollr-ui",
   "version": "0.1.0",
   "private": true,
   "license": "Open BSV License",
@@ -7,7 +7,7 @@
     "@bsv/sdk": "^1.1.21",
     "@emotion/react": "^11.13.0",
     "@emotion/styled": "^11.13.0",
-    "@mui/icons-material": "^5.16.4",
+    "@mui/icons-material": "^5.16.14",
     "@mui/material": "^5.16.7",
     "@mui/system": "^5.16.7",
     "@types/jest": "^29.5.11",
