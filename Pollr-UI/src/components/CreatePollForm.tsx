@@ -13,10 +13,27 @@ const PollForm: React.FC = () => {
   const [options, setOptions] = useState<Option[]>([])
 
   const handleNumberOfOptionsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const count = parseInt(e.target.value, 10)
-    setNumberOfOptions(count)
-    setOptions(Array(count).fill({ value: '' }))
-  }
+    const count = parseInt(e.target.value, 10);
+  
+    setNumberOfOptions(count);
+  
+    setOptions((prevOptions) => {
+      const newOptions = [...prevOptions]; // Copy the existing options
+  
+      if (count > prevOptions.length) {
+        // Add new empty options
+        for (let i = prevOptions.length; i < count; i++) {
+          newOptions.push({ value: '' });
+        }
+      } else {
+        // Trim the options array if count is reduced
+        newOptions.length = count;
+      }
+  
+      return newOptions;
+    });
+  };
+  
 
   const handleOptionValueChange = (index: number, value: string) => {
     const updatedOptions = [...options]
@@ -25,14 +42,28 @@ const PollForm: React.FC = () => {
   }
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
+  
+    const optionValues = options.map(option => option.value.trim());
+    const uniqueValues = new Set(optionValues);
+    if (optionValues.some(value => value === '')) {
+      alert('Options cannot be empty or contain only spaces.');
+      return;
+    }
+    if (uniqueValues.size !== optionValues.length) {
+      alert('Duplicate options are not allowed. Please enter unique values.');
+      return;
+    }
+  
     console.log({
       pollName,
       pollDescription,
       optionsType,
       options,
-    })
-  }
+    });
+  
+  };
+  
 
   return (
     <form className="poll-form" onSubmit={handleSubmit}>
@@ -58,6 +89,17 @@ const PollForm: React.FC = () => {
       </div>
 
       <div className="form-group">
+        <label>Options Type:</label>
+        <select
+          value={optionsType}
+          onChange={(e) => setOptionsType(e.target.value as 'text' | 'image')}
+        >
+          <option value="text">Text</option>
+          <option value="image">Image</option>
+        </select>
+      </div>
+
+      <div className="form-group">
         <label>Number of Options:</label>
         <input
           type="number"
@@ -68,16 +110,7 @@ const PollForm: React.FC = () => {
         />
       </div>
 
-      <div className="form-group">
-        <label>Options Type:</label>
-        <select
-          value={optionsType}
-          onChange={(e) => setOptionsType(e.target.value as 'text' | 'image')}
-        >
-          <option value="text">Text</option>
-          <option value="image">Image</option>
-        </select>
-      </div>
+      
 
       {options.map((option, index) => (
         <div className="form-group" key={index}>
