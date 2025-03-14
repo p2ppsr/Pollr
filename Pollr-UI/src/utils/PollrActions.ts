@@ -1,6 +1,9 @@
 import { createAction, EnvelopeEvidenceApi, toBEEFfromEnvelope } from '@babbage/sdk-ts'
 import pushdrop from 'pushdrop'
-import { getPublicKey, createSignature, verifySignature } from "@babbage/sdk-ts"
+import { getPublicKey, createSignature } from "@babbage/sdk-ts"
+interface Option {
+    value: string
+  }
 export async function submitCreatePolls({
     pollName,
     pollDescription,
@@ -9,14 +12,14 @@ export async function submitCreatePolls({
         pollName: string,
         pollDescription: string,
         optionsType: string,
-        options: string[]
+        options: Option[]
     }):
     Promise<string> {
 
     const walID = await getPublicKey({
         identityKey: true
     })
-    const OutputScript = pushdrop.create({
+    const OutputScript = await pushdrop.create({
         fields: [
             Buffer.from("open", "utf8"),
             Buffer.from('' + walID, "utf8"),
@@ -25,10 +28,10 @@ export async function submitCreatePolls({
             Buffer.from('' + options.length.toString(), "utf8"),
             Buffer.from('' + optionsType, "utf8"),
             Buffer.from('' + (Math.floor(Date.now() / 1000)).toString(), "utf8"),
-            ...options.map((opt) => Buffer.from(opt, "utf8")),
+            ...options.map((opt) => Buffer.from(opt.value, "utf8"))
         ],
-        protocolID: "pollcreationtest1",
-        keyID: "0test",
+        protocolID: "plrct1",
+        keyID: "0",
     })
     const newToken = await createAction({
         outputs: [{
@@ -45,7 +48,7 @@ export async function submitCreatePolls({
         txid: newToken.txid
     }).beef
 
-    const response = await fetch(`http://localhost:8090//submit`, {
+    const response = await fetch(`http://localhost:8080/submit`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/octet-stream',
@@ -55,7 +58,7 @@ export async function submitCreatePolls({
     })
     const parsedResponse = await response.json()
 
-    console.log(parsedResponse)
+    console.log(`response: ${parsedResponse}`)
     return parsedResponse
 }
 export async function submitVote({
@@ -68,25 +71,25 @@ export async function submitVote({
     const walID = await getPublicKey({
         identityKey: true
     })
-
-    const OutputScript = pushdrop.create({
-        fields: [
-            Buffer.from("vote", "utf8"),
-            Buffer.from('' + walID, "utf8"),
-            Buffer.from('' + pollId, "utf8"),
-            Buffer.from('' + index, "utf8"),
-        ],
-        protocolID: "votetest1",
-        keyID: "1test",
-    })
-
+    let tosign = [
+        Buffer.from("vote", "utf8"),
+        Buffer.from('' + walID, "utf8"),
+        Buffer.from('' + pollId, "utf8"),
+        Buffer.from('' + index, "utf8"),
+    ]
     const signage = createSignature({
-        data: OutputScript,
+        data: tosign.toString(),
         protocolID: "votesigntest1",
         keyID: "1test",
         description: "Allows topic manager to confirm votes test",
         counterparty: "self",
     })
+    const OutputScript = pushdrop.create({
+        fields: tosign,
+        protocolID: "votetest1",
+        keyID: "1test",
+    })
+
 
     const newToken = await createAction({
         outputs: [{

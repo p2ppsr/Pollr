@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import './PollForm.css' // Import the CSS file
-
+import {submitCreatePolls} from '../utils/PollrActions'
 interface Option {
   value: string
 }
@@ -54,7 +54,13 @@ const PollForm: React.FC = () => {
       alert('Duplicate options are not allowed. Please enter unique values.');
       return;
     }
-  
+  // export async function submitCreatePolls({
+    submitCreatePolls({
+      pollName,
+      pollDescription,
+      optionsType,
+      options,
+    })
     console.log({
       pollName,
       pollDescription,
