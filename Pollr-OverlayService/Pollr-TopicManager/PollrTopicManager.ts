@@ -25,7 +25,7 @@ export class PollrTopicManager implements TopicManager {
           let result
           const firstField = decodedOutput.fields[0].toString("utf8")
           if (firstField === "vote") {
-            console.log("Processing a vote...")
+            console.log("tm Processing a vote...")
             //check that it has 4 items
             if (decodedOutput.fields.length() !== 4) {
               throw new Error('Token did not meet criteria.')
@@ -44,7 +44,7 @@ export class PollrTopicManager implements TopicManager {
                 (!Array.isArray(lookupResult) && Object.keys(lookupResult).length > 0)
               )
             ) {
-              throw new Error("Duplicate votes found.")
+              throw new Error("poll not found.")
             }
             //check dups
 
@@ -79,7 +79,7 @@ export class PollrTopicManager implements TopicManager {
 
           } else if (firstField === "open") {
             console.log("tm Processing a poll opening...")
-
+            
             console.log('tm poll added successfully to the database:\n%O', result)
 
           } else if (firstField === "close") {
@@ -94,7 +94,7 @@ export class PollrTopicManager implements TopicManager {
 
           outputsToAdmit.push(i)
         } catch (err) {
-          console.error('Invalid output', err)
+          // console.error('Invalid output', err)
 
         }
 

@@ -65,7 +65,7 @@ export class PollrLookupService implements LookupService {
                 console.log('ls vote added successfully to the database:\n%O', result)
 
             } else if (firstField === "open") {
-                console.log("Processing a poll opening...")
+                console.log("ls Processing a poll opening...")
                 const result = await this.opens?.insertOne({
                     txid,
                     outputIndex,
@@ -78,10 +78,10 @@ export class PollrLookupService implements LookupService {
                     options: decodedOutput.fields.slice(7, 7 + parseInt(decodedOutput.fields[4].toString(), 10)).map((buffer: any) => buffer.toString())
 
                 })
-                console.log('poll added successfully to the database:\n%O', result)
+                console.log('ls poll added successfully to the database:\n%O', result)
 
             } else if (firstField === "close") {
-                console.log("Processing a close...")
+                console.log("ls Processing a close...")
                 result = await this.closes?.insertOne({
                     txid,
                     outputIndex,
@@ -90,7 +90,7 @@ export class PollrLookupService implements LookupService {
                     index: decodedOutput.fields[3].tostring()
                 })
             } else {
-                console.log("Invalid transaction type!")
+                console.log("ls Invalid transaction type!")
             }
 
             ////////////////////////////////////////////////////
