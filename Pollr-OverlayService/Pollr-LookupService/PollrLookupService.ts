@@ -1,21 +1,43 @@
 import { LookupService, LookupQuestion, LookupAnswer, LookupFormula } from '@bsv/overlay'
-import {Script } from '@bsv/sdk'
+import { Script } from '@bsv/sdk'
 import { MongoClient, Collection } from 'mongodb'
 import pushdrop from 'pushdrop'
-import { PollQuery } from './types.js'
+import { PollQuery, VoteCounts } from './types.js'
 export type PollrStorage = {
     db_string: string
 }
+
 export class PollrLookupService implements LookupService {
     constructor(private storage: PollrStorage) { }
     private votes: Collection | undefined
     private closes: Collection | undefined
     private opens: Collection | undefined
+    private nextid: Collection | undefined
     private connection: MongoClient | undefined
     /**
      * Processes the event when a new UTXO is added to a voting topic.
      * This keeps track of open polls and votes.
      */
+    async getNextId(): Promise<number> {
+        try {
+            const result = await this.nextid?.findOneAndUpdate(
+                {}, // Match the single document
+                { $inc: { nextId: 1 } }, // Increment the stored nextId by 1
+                { returnDocument: "before", upsert: true } // Return old value before update
+            );
+
+            if (!result || !result.value) {
+                // If no document existed, initialize with ID 1
+                await this.nextid?.insertOne({ nextId: 2 }); // The next available ID will be 2
+                return 1; // The first ID assigned
+            }
+
+            return result.value.nextId; // The assigned ID before incrementing
+        } catch (error) {
+            console.error("Error updating next ID:", error);
+            return -1;
+        }
+    }
     async connectToDB(): Promise<void> {
         const client = new MongoClient(this.storage.db_string)
 
@@ -42,7 +64,7 @@ export class PollrLookupService implements LookupService {
         outputIndex: number,
         outputScript: Script,
         topic: string
-      ): Promise<void>  {
+    ): Promise<void> {
         this.onTopic(topic)
         try {
             const decodedOutput = pushdrop.decode({
@@ -71,6 +93,7 @@ export class PollrLookupService implements LookupService {
                     outputIndex,
                     walID: decodedOutput.fields[1].toString(),
                     pollName: decodedOutput.fields[2].toString(),
+                    pollId: this.getNextId().toString(),
                     pollDescription: decodedOutput.fields[3].toString(),
                     numOptions: parseInt(decodedOutput.fields[4].toString(), 10),  // Ensure it's a number
                     optionsType: decodedOutput.fields[5].toString(),
@@ -120,15 +143,37 @@ export class PollrLookupService implements LookupService {
             for (const collection of collections) {
                 await this.connection?.db('pollrservice').collection(collection.name).deleteMany({ txid, outputIndex })
                 console.log(`Deleted documents from collection: ${collection.name}`)
-            }
+            }//need to spend all vote tokens related to that poll, also need to save that data here. maybe not because it will just call output added?
+            // try topic manager 
         } catch (error) {
             console.error("Error deleting from collections:", error)
         }
     }
 
+    async getVotesforPoll(pollId: string): Promise<{}> {
+        const cursor = await this.votes?.find({ pID: pollId }).toArray();
+        let response = []
+        for await (const result of cursor!) {
+            response.push({ walID: result.walID as string, pollId: result.pollId, index: result.index })
+        }
+
+
+        const voteCounts: { [key: string]: number } = {};
+
+        // Loop through response and count votes based on the index field
+        for (const vote of response) {
+            // If the index field is not one of the expected options, you can skip or handle it as needed.
+            if (vote.index === "Yes" || vote.index === "No" || vote.index === "Maybe") {
+                voteCounts[vote.index] = (voteCounts[vote.index] || 0) + 1;
+            }
+        }
+
+        return voteCounts;
+    }
     /**
      * Processes when a UTXO is deleted.
      */
+
     async outputDeleted(
         txid: string,
         outputIndex: number,
@@ -160,23 +205,81 @@ export class PollrLookupService implements LookupService {
         if (question.service !== 'ls_pollr') {
             throw new Error(`Invalid service name "${question.service}" for this lookup service.`)
         }
-        const { pollId, voterId } = question.query as PollQuery
+        const { type, pollId, voterId, status } = question.query as PollQuery
 
-        // Helper to check for non-empty strings.
+        // Helper function to validate non-empty strings
         const isValid = (val?: string) => Boolean(val && val.trim())
 
-        // We'll use a cursor to iterate the query results.
         let cursor: any
 
-        if (isValid(pollId)) {
-            if (isValid(voterId)) {
-                // Vote lookup: require both pollId and voterId.
-                cursor = this.votes?.find({ pollId, voterId })
-            } else {
-                // Poll lookup: when only pollId is provided,
-                // search both 'closes' and 'opens' collections.
-                // Using aggregation with $unionWith to combine both.
-                cursor = this.closes?.aggregate([
+        if (type === "vote" && isValid(pollId) && isValid(voterId)) {
+            // **Check for duplicate votes**
+            cursor = await this.votes?.findOne({ pollId, voterId })
+
+            return {
+                type: "freeform",
+                result: {
+                    message: cursor ? "Voter has already voted." : "Voter has not voted yet.",
+                    voteDetails: cursor || null
+                }
+            }
+        }// unneeded maybe
+
+        if (type === "poll") {//works but need to change data, cant be sharing this much info from the database
+            
+            if (status === "all") {
+                
+                // **Fetch all polls (both open & closed)**
+                console.log("Fetching all polls...")
+                let pollvotes = []
+                cursor = await this.opens?.find({}).toArray()
+                for await (const result of cursor!) {
+                    pollvotes.push(await this.getVotesforPoll(cursor.pollId))
+                }
+
+                return {
+                    type: "freeform",
+                    result: {
+                        message: "All polls retrieved.",
+                        polls: cursor,
+                        votes: pollvotes
+                    }
+                }
+            }
+
+            if (status === "closed") {
+                // **Fetch all closed polls or a specific closed poll**
+                cursor = isValid(pollId)
+                    ? await this.closes?.findOne({ pollId })
+                    : await this.closes?.find({}).toArray()//should store into the database the results so that way its easier, change it in the topic manager
+                
+                return {
+                    type: "freeform",
+                    result: {
+                        message: "Closed poll results retrieved.",
+                        polls: cursor
+                    }
+                }
+            }
+
+            if (status === "open") {
+                // **Fetch all open polls or a specific open poll**
+                cursor = isValid(pollId)
+                    ? await this.opens?.findOne({ pollId })
+                    : await this.opens?.find({}).toArray()
+
+                return {
+                    type: "freeform",
+                    result: {
+                        message: "Open poll interim results retrieved.",
+                        polls: cursor//changed these to for loop into the votes collection to know interim results
+                    }
+                }
+            }
+
+            if (isValid(pollId)) {
+                // **General Poll Lookup (Search in both open & closed)**
+                cursor = await this.closes?.aggregate([
                     { $match: { pollId } },
                     {
                         $unionWith: {
@@ -184,19 +287,25 @@ export class PollrLookupService implements LookupService {
                             pipeline: [{ $match: { pollId } }]
                         }
                     }
-                ])
+                ]).toArray()
+
+                return {
+                    type: "freeform",
+                    result: {
+                        message: "Poll results retrieved from both open and closed collections.",
+                        polls: cursor
+                    }
+                }
             }
-        } else {
-            // If pollId is missing or invalid, throw an error.
-            throw new Error("Invalid query: a valid pollId is required.")
         }
 
-        const response: LookupFormula = []
-        for await (const result of cursor!) {
-            response.push({ txid: result.txid as string, outputIndex: result.outputIndex })
+        // **If no valid query parameters are provided, return an error response**
+        return {
+            type: "freeform",
+            result: {
+                error: "Invalid query: a valid pollId is required."
+            }
         }
-
-        return response
     }
 
     /**

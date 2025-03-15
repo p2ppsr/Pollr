@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import PollsDisplay from "../utils/DisplayPolls";
-import { Poll } from "../types/poll";
+import { Poll } from "../types/types";
 
 const fetchCompletedPolls = async (): Promise<Poll[]> => {
   return [

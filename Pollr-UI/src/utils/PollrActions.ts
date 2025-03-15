@@ -1,9 +1,11 @@
 import { createAction, EnvelopeEvidenceApi, toBEEFfromEnvelope } from '@babbage/sdk-ts'
+// import { toEnvelopeFromBEEF } from '@babbage/sdk-ts/dist/toEnvelopeFromBEEF';
+// import { toEnvelopeFromBEEF } from '@babbage/sdk-ts'
 import pushdrop from 'pushdrop'
 import { getPublicKey, createSignature } from "@babbage/sdk-ts"
-interface Option {
-    value: string
-  }
+import { Option, PollQuery } from '../types/types'
+import { LookupQuestion } from '@bsv/overlay'
+import { Output } from '@mui/icons-material'
 export async function submitCreatePolls({
     pollName,
     pollDescription,
@@ -173,4 +175,39 @@ export async function closePoll({
 
     console.log(parsedResponse)
     return parsedResponse
+}
+export async function fetchAllpolls():Promise<string>
+{
+    let query = {} as PollQuery 
+    query.type = 'poll'
+    query.status = "all"
+    let question = {} as LookupQuestion
+    question.query = query
+    question.service = 'ls_pollr'
+    // console.log(question)
+    const response = await fetch(`http://localhost:8080/lookup`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/octet-stream',
+            'X-Topics': JSON.stringify(['ls_pollr'])
+        },
+        body:  JSON.stringify(question)
+    })
+    // console.log(response)
+
+    const parsedResponse = await response.json()
+    // toEnvelopeFromBEEF(parsedResponse.outputs[0].beef);
+    // const buffer = Buffer.from(parsedResponse.outputs[0].beef);
+    // const hexString = buffer.toString('hex');
+    console.log(parsedResponse)
+    // console.log(parsedResponse.Outputs[0])
+    const script = parsedResponse
+    // console.log(script.lockingScript)
+    let result = " "
+    // const result = pushdrop.decode({
+    //     script: script.lockingScript.toString('hex'),
+    //     fieldFormat: 'buffer'
+    // })
+    console.log(script)
+    return result
 }

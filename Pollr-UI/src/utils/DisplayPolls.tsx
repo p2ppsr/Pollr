@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@mui/material";
 import "./DisplayPolls.css";
-import {Poll} from "../types/poll"
+import {Poll} from "../types/types"
 
 
 interface PollsListProps {

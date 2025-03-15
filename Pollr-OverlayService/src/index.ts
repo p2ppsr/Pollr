@@ -1,8 +1,8 @@
 import dotenv from 'dotenv'
 import express from 'express'
 import bodyparser from 'body-parser'
-import { Engine, KnexStorage, STEAK, TaggedBEEF } from '@bsv/overlay'
-import { WhatsOnChain, NodejsHttpClient, ARC, ArcConfig, MerklePath } from '@bsv/sdk'
+import { Engine, KnexStorage, LookupService, STEAK, TaggedBEEF } from '@bsv/overlay'
+import { WhatsOnChain, NodejsHttpClient, ARC, ArcConfig, MerklePath, LookupQuestion, LookupAnswer } from '@bsv/sdk'
 import { MongoClient } from 'mongodb'
 import https from 'https'
 import Knex from 'knex'
@@ -50,26 +50,34 @@ const initialization = async () => {
     try {
         if (!DB_CONNECTION)
             throw new Error("Empty Pollr db_string given")
-
+        const tmlsPollr = new PollrLookupService({
+            db_string: DB_CONNECTION
+        })
+        try {
+            await tmlsPollr.connectToDB()
+        }
+        catch (e) {
+            throw new Error(`Failed to connect to DB collection: ${e}`)
+        }
         const lsPollr = new PollrLookupService({
             db_string: DB_CONNECTION
         })
-        const result = await knex.migrate.latest()
-        console.log('Result of migration: %O', result)
         try {
             await lsPollr.connectToDB()
         }
         catch (e) {
             throw new Error(`Failed to connect to DB collection: ${e}`)
         }
-        const tmPollr = new PollrTopicManager(lsPollr)
-        const arcConfig: ArcConfig = {
-            deploymentId: '1',
-            apiKey: TAAL_API_KEY,
-            callbackUrl: `${HOSTING_DOMAIN as string}/arc-ingest`,
-            callbackToken: 'fredFlinstones',
-            httpClient: new NodejsHttpClient(https)
-        }
+        const result = await knex.migrate.latest()
+        console.log('Result of migration: %O', result)
+        const tmPollr = new PollrTopicManager(tmlsPollr)
+        // const arcConfig: ArcConfig = {
+        //     deploymentId: '1',
+        //     apiKey: TAAL_API_KEY,
+        //     callbackUrl: `${HOSTING_DOMAIN as string}/arc-ingest`,
+        //     callbackToken: 'fredFlinstones',
+        //     httpClient: new NodejsHttpClient(https)
+        // }
         console.log('Initializing Engine...')
         try {
             // Configuration for ARC
@@ -120,7 +128,7 @@ app.use((req, res, next) => {
         next()
     }
 })
-
+app.use(express.json())
 // Serve a static documentation site, if you have one.
 app.use(express.static('public'))
 
@@ -207,6 +215,8 @@ app.get('/getDocumentationForLookupServiceProvider', (req, res) => {
 // Submit transactions and facilitate lookup requests
 app.post('/submit', (req, res) => {
     (async () => {
+        console.log("attempting to submit")
+
         try {
             // Parse out the topics and construct the tagged BEEF
             const topics = JSON.parse(req.headers['x-topics'] as string)
@@ -237,9 +247,21 @@ app.post('/submit', (req, res) => {
 
 app.post('/lookup', (req, res) => {
     (async () => {
+        console.log("attempting to lookup")
         try {
-            const result = await engine.lookup(req.body)
-            return res.status(200).json(result)
+            // If req.body is a string, parse it; if it's already an object, use it directly.
+            let parsedBody = JSON.parse(req.body)
+            const result: LookupAnswer = await engine.lookup(parsedBody)
+
+            // Define the output type matching LookupFormula.
+            if(result.type === "output-list")
+            {
+                console.log(`Returning ${result.type} with outputs:`, result.outputs);
+            }
+            else
+            console.log(`Returning ${result.type} with outputs:`);
+
+            return res.status(200).json(result);
         } catch (error) {
             console.error(error)
             return res.status(400).json({

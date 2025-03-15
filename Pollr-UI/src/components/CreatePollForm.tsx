@@ -1,39 +1,65 @@
 import React, { useState } from 'react'
-import './PollForm.css' // Import the CSS file
-import {submitCreatePolls} from '../utils/PollrActions'
-interface Option {
-  value: string
-}
+import './PollForm.css'
+import { submitCreatePolls } from '../utils/PollrActions'
+import {Option} from '../types/types'
+
 
 const PollForm: React.FC = () => {
   const [pollName, setPollName] = useState<string>('')
   const [pollDescription, setPollDescription] = useState<string>('')
-  const [numberOfOptions, setNumberOfOptions] = useState<number>(0)
+  // Keep the raw input as a string
+  const [numberOfOptions, setNumberOfOptions] = useState<string>('2')
   const [optionsType, setOptionsType] = useState<'text' | 'image'>('text')
-  const [options, setOptions] = useState<Option[]>([])
+  // Initialize with two empty options
+  const [options, setOptions] = useState<Option[]>([{ value: '' }, { value: '' }])
 
+  // Update state on each change without forcing a value
   const handleNumberOfOptionsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const count = parseInt(e.target.value, 10);
-  
-    setNumberOfOptions(count);
-  
+    const value = e.target.value
+    setNumberOfOptions(value)
+
+    // If the current input is a valid number within range, update the options array live
+    const count = parseInt(value, 10)
+    if (!isNaN(count) && count >= 2 && count <= 10) {
+      setOptions((prevOptions) => {
+        const newOptions = [...prevOptions]
+        if (count > prevOptions.length) {
+          // Add new empty options if count increased
+          for (let i = prevOptions.length; i < count; i++) {
+            newOptions.push({ value: '' })
+          }
+        } else {
+          // Trim the options array if count is reduced
+          newOptions.length = count
+        }
+        return newOptions
+      })
+    }
+  }
+
+  // On blur, enforce the range and update options accordingly
+  const handleNumberOfOptionsBlur = () => {
+    let count = parseInt(numberOfOptions, 10)
+    if (isNaN(count) || count < 2) {
+      count = 2
+    } else if (count > 10) {
+      count = 10
+    }
+    // Update the input field to show the valid number
+    setNumberOfOptions(count.toString())
+    // Update the options array accordingly
     setOptions((prevOptions) => {
-      const newOptions = [...prevOptions]; // Copy the existing options
-  
+      const newOptions = [...prevOptions]
       if (count > prevOptions.length) {
-        // Add new empty options
         for (let i = prevOptions.length; i < count; i++) {
-          newOptions.push({ value: '' });
+          newOptions.push({ value: '' })
         }
       } else {
-        // Trim the options array if count is reduced
-        newOptions.length = count;
+        newOptions.length = count
       }
-  
-      return newOptions;
-    });
-  };
-  
+      return newOptions
+    })
+  }
 
   const handleOptionValueChange = (index: number, value: string) => {
     const updatedOptions = [...options]
@@ -42,19 +68,24 @@ const PollForm: React.FC = () => {
   }
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-  
-    const optionValues = options.map(option => option.value.trim());
-    const uniqueValues = new Set(optionValues);
+    e.preventDefault()
+    const count = parseInt(numberOfOptions, 10)
+    if (isNaN(count) || count < 2 || count > 10) {
+      alert('Please enter a valid number of options (between 2 and 10).')
+      return
+    }
+
+    const optionValues = options.map(option => option.value.trim())
+    const uniqueValues = new Set(optionValues)
     if (optionValues.some(value => value === '')) {
-      alert('Options cannot be empty or contain only spaces.');
-      return;
+      alert('Options cannot be empty or contain only spaces.')
+      return
     }
     if (uniqueValues.size !== optionValues.length) {
-      alert('Duplicate options are not allowed. Please enter unique values.');
-      return;
+      alert('Duplicate options are not allowed. Please enter unique values.')
+      return
     }
-  // export async function submitCreatePolls({
+
     submitCreatePolls({
       pollName,
       pollDescription,
@@ -66,10 +97,8 @@ const PollForm: React.FC = () => {
       pollDescription,
       optionsType,
       options,
-    });
-  
-  };
-  
+    })
+  }
 
   return (
     <form className="poll-form" onSubmit={handleSubmit}>
@@ -111,12 +140,12 @@ const PollForm: React.FC = () => {
           type="number"
           value={numberOfOptions}
           onChange={handleNumberOfOptionsChange}
-          min="0"
+          onBlur={handleNumberOfOptionsBlur}
+          min="2"
+          max="10"
           required
         />
       </div>
-
-      
 
       {options.map((option, index) => (
         <div className="form-group" key={index}>
@@ -143,7 +172,9 @@ const PollForm: React.FC = () => {
         </div>
       ))}
 
-      <button type="submit" className="submit-button">Create Poll</button>
+      <button type="submit" className="submit-button">
+        Create Poll
+      </button>
     </form>
   )
 }

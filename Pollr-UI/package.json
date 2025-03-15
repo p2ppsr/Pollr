@@ -4,6 +4,7 @@
   "private": true,
   "license": "Open BSV License",
   "dependencies": {
+    "@bsv/overlay": "^0.1.24",
     "@bsv/sdk": "^1.1.21",
     "@emotion/react": "^11.13.0",
     "@emotion/styled": "^11.13.0",
