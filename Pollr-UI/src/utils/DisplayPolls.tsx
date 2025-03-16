@@ -72,7 +72,7 @@ export default function PollsDisplay({ polls, onPollAction, actionLabel, title }
           {actionType === "vote" ? (
             actionData.length > 0 ? (
               actionData.map((choice, index) => (
-                <div key={index} className="poll-card highlight-card">
+                <div key={index} className="poll-card highlight-card" >
                   {choice}
                 </div>
               ))

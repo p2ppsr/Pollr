@@ -12,6 +12,7 @@ import { SyncConfiguration } from '@bsv/overlay/SyncConfiguration.ts'
 import { PollrLookupService } from '../Pollr-LookupService/PollrLookupService.js'
 import { PollrTopicManager } from '../Pollr-TopicManager/PollrTopicManager.js'
 import { tmpdir } from 'os'
+import { PollQuery } from 'Pollr-LookupService/types.js'
 const knex = Knex(knexfile.development)
 const app = express()
 dotenv.config()
@@ -250,7 +251,11 @@ app.post('/lookup', (req, res) => {
         console.log("attempting to lookup")
         try {
             // If req.body is a string, parse it; if it's already an object, use it directly.
-            let parsedBody = JSON.parse(req.body)
+            let parsedBody: LookupQuestion = JSON.parse(req.body)
+            let query: PollQuery = parsedBody.query as PollQuery
+            console.log(`Looking up ${query.type}`)
+            console.log(`Looking up ${query.voterId}`)
+            console.log(`Looking up ${query.status}`)
             const result: LookupAnswer = await engine.lookup(parsedBody)
 
             // Define the output type matching LookupFormula.

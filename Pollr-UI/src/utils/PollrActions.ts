@@ -1,11 +1,12 @@
-import { createAction, EnvelopeEvidenceApi, toBEEFfromEnvelope } from '@babbage/sdk-ts'
-// import { toEnvelopeFromBEEF } from '@babbage/sdk-ts/dist/toEnvelopeFromBEEF';
+import { createAction, EnvelopeEvidenceApi, toBEEFfromEnvelope, getTransactionOutputs } from '@babbage/sdk-ts'
+// import { toEnvelopeFromBEEF } from '@babbage/sdk-ts/dist/toEnvelopeFromBEEF'
 // import { toEnvelopeFromBEEF } from '@babbage/sdk-ts'
 import pushdrop from 'pushdrop'
 import { getPublicKey, createSignature } from "@babbage/sdk-ts"
-import { Option, PollQuery } from '../types/types'
+import { Option, PollQuery, OptionResults, Poll } from '../types/types'
 import { LookupQuestion } from '@bsv/overlay'
 import { Output } from '@mui/icons-material'
+const pollrHost = 'http://localhost:8080'
 export async function submitCreatePolls({
     pollName,
     pollDescription,
@@ -39,7 +40,7 @@ export async function submitCreatePolls({
         outputs: [{
             satoshis: 1,
             script: OutputScript,
-            basket: "mypollstest1",
+            basket: "mypollstest2",
         }],
         description: 'Create poll test'
     })
@@ -50,7 +51,7 @@ export async function submitCreatePolls({
         txid: newToken.txid
     }).beef
 
-    const response = await fetch(`http://localhost:8080/submit`, {
+    const response = await fetch(`${pollrHost}/submit`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/octet-stream',
@@ -130,11 +131,11 @@ export async function closePoll({
     }): Promise<string> {
 
     // const formattedBuffers: Buffer[] = options.map((option, index) => {
-    //     const result = results[index] ?? ""; // Handle potential undefined results
-    //     const formattedString = `${option} : ${result}`;
-    //     return Buffer.from(formattedString, "utf8");
-    // });
-    
+    //     const result = results[index] ?? "" // Handle potential undefined results
+    //     const formattedString = `${option} : ${result}`
+    //     return Buffer.from(formattedString, "utf8")
+    // })
+
     const walID = await getPublicKey({
         identityKey: true
     })
@@ -144,7 +145,7 @@ export async function closePoll({
             Buffer.from("close", "utf8"),
             Buffer.from('' + walID, "utf8"),
             Buffer.from('' + pollId, "utf8"),
-            ...options.map((opt, i) => Buffer.from(`${opt}:${results[i]}`, "utf8")) 
+            ...options.map((opt, i) => Buffer.from(`${opt}:${results[i]}`, "utf8"))
         ],
         protocolID: "pollclosetest1",
         keyID: "3test",
@@ -176,38 +177,165 @@ export async function closePoll({
     console.log(parsedResponse)
     return parsedResponse
 }
-export async function fetchAllpolls():Promise<string>
-{
-    let query = {} as PollQuery 
+export async function fetchAllpolls(): Promise<Poll[]> {
+    let query = {} as PollQuery
     query.type = 'poll'
     query.status = "all"
     let question = {} as LookupQuestion
     question.query = query
     question.service = 'ls_pollr'
-    // console.log(question)
-    const response = await fetch(`http://localhost:8080/lookup`, {
+    const response = await fetch(`${pollrHost}/lookup`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/octet-stream',
             'X-Topics': JSON.stringify(['ls_pollr'])
         },
-        body:  JSON.stringify(question)
+        body: JSON.stringify(question)
     })
-    // console.log(response)
 
     const parsedResponse = await response.json()
-    // toEnvelopeFromBEEF(parsedResponse.outputs[0].beef);
-    // const buffer = Buffer.from(parsedResponse.outputs[0].beef);
-    // const hexString = buffer.toString('hex');
+    let pollresutls: Poll[] = []
     console.log(parsedResponse)
-    // console.log(parsedResponse.Outputs[0])
-    const script = parsedResponse
-    // console.log(script.lockingScript)
-    let result = " "
-    // const result = pushdrop.decode({
-    //     script: script.lockingScript.toString('hex'),
-    //     fieldFormat: 'buffer'
-    // })
-    console.log(script)
-    return result
+    const pollsData = parsedResponse.result.polls
+    const votesData = parsedResponse.result.votes
+
+    for (let i = 0; i < pollsData.length; i++) {
+        const poll = pollsData[i]
+        let time = new Date(parseInt(poll.date, 10) * 1000);
+
+        pollresutls.push({
+            id: poll.pollId,
+            name: poll.pollName,
+            desc: poll.pollDescription,
+            date: time.toLocaleDateString(),
+        })
+        // console.log(parsedResponse.result.polls)
+    }
+    return pollresutls
+}
+export async function fetchopenvotes(pollId: string): Promise<Record<string, number>[]> {
+    let query = {} as PollQuery
+    query.type = 'poll'
+    query.status = 'open'
+    query.pollId = pollId
+    let question = {} as LookupQuestion
+    question.query = query
+    question.service = 'ls_pollr'
+    const response = await fetch(`${pollrHost}/lookup`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/octet-stream',
+            'X-Topics': JSON.stringify(['ls_pollr'])
+        },
+        body: JSON.stringify(question)
+    })
+
+    const parsedResponse = await response.json()
+    console.log(parsedResponse.result.votes[0])
+    const votesData = parsedResponse.result.votes[0] as Record<string, number>
+
+    const listOfRecords: Record<string, number>[] = (Object.entries(votesData) as [string, number][])
+        .map(([option, count]) => ({ [option]: count }))
+    return listOfRecords
+}
+export async function fetchMypolls() {
+
+    let query = {} as PollQuery
+    query.type = 'poll'
+    query.status = "all"
+    query.voterId = await getPublicKey({
+        identityKey: true
+    })
+    let question = {} as LookupQuestion
+    question.query = query
+    question.service = 'ls_pollr'
+    console.log(`sending ${JSON.stringify(question)}`)
+    const response = await fetch(`${pollrHost}/lookup`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/octet-stream',
+            'X-Topics': JSON.stringify(['ls_pollr'])
+        },
+        body: JSON.stringify(question)
+    })
+
+    const parsedResponse = await response.json()
+    let pollresutls: Poll[] = []
+    console.log(parsedResponse)
+    const pollsData = parsedResponse.result.polls
+    const votesData = parsedResponse.result.votes
+
+    for (let i = 0; i < pollsData.length; i++) {
+        const poll = pollsData[i]
+        let time = new Date(parseInt(poll.date, 10) * 1000);
+        pollresutls.push({
+            id: poll.pollId,
+            name: poll.pollName,
+            desc: poll.pollDescription,
+            date: time.toLocaleDateString(),
+            status: poll.status
+        })
+    }
+    return pollresutls
+}
+export async function getClosedPolls() {
+    let query = {} as PollQuery
+    query.type = 'poll'
+    query.status = "closed"
+    let question = {} as LookupQuestion
+    question.query = query
+    question.service = 'ls_pollr'
+    const response = await fetch(`${pollrHost}/lookup`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/octet-stream',
+            'X-Topics': JSON.stringify(['ls_pollr'])
+        },
+        body: JSON.stringify(question)
+    })
+
+    const parsedResponse = await response.json()
+    let pollresutls: Poll[] = []
+    console.log(parsedResponse)
+    const pollsData = parsedResponse.result.polls
+    const votesData = parsedResponse.result.votes
+
+    for (let i = 0; i < pollsData.length; i++) {
+        const poll = pollsData[i]
+        let time = new Date(parseInt(poll.date, 10) * 1000);
+
+        pollresutls.push({
+            id: poll.pollId,
+            name: poll.pollName,
+            desc: poll.pollDescription,
+            date: time.toLocaleDateString(),
+        })
+        // console.log(parsedResponse.result.polls)
+    }
+    return pollresutls
+}
+export async function getPoll(pollId: string) {
+    let query = {} as PollQuery
+    query.type = 'poll'
+    query.status = 'any1'
+    query.pollId = pollId
+    query.voterId = await getPublicKey({
+        identityKey: true
+    })
+    let question = {} as LookupQuestion
+    question.query = query
+    question.service = 'ls_pollr'
+    const response = await fetch(`${pollrHost}/lookup`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/octet-stream',
+            'X-Topics': JSON.stringify(['ls_pollr'])
+        },
+        body: JSON.stringify(question)
+    })
+
+    const parsedResponse = await response.json()
+    console.log(parsedResponse.result)
+    
+
 }

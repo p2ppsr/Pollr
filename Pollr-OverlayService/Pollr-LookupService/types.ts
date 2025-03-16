@@ -12,7 +12,7 @@ export interface Pollrvotes {
     type: "vote" | "poll";
     pollId?: string;
     voterId?: string;
-    status?: "open" | "closed" | "all";
+    status?: "open" | "closed" | "all" | "any1";
   };
 export type PollResponse = {
   pollId: string;
