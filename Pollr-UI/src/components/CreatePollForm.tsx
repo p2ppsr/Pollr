@@ -92,6 +92,9 @@ const PollForm: React.FC = () => {
       optionsType,
       options,
     })
+    setTimeout(() => {
+        window.location.reload();
+      }, 3000);
     console.log({
       pollName,
       pollDescription,

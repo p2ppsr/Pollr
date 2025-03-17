@@ -3,9 +3,9 @@ import { createAction, EnvelopeEvidenceApi, toBEEFfromEnvelope, getTransactionOu
 // import { toEnvelopeFromBEEF } from '@babbage/sdk-ts'
 import pushdrop from 'pushdrop'
 import { getPublicKey, createSignature } from "@babbage/sdk-ts"
-import { Option, PollQuery, OptionResults, Poll } from '../types/types'
+import { Option, PollQuery, OptionResults, Poll,VoteData } from '../types/types'
 import { LookupQuestion } from '@bsv/overlay'
-import { Output } from '@mui/icons-material'
+import { FileDownloadOffRounded, VolumeMuteRounded } from '@mui/icons-material'
 const pollrHost = 'http://localhost:8080'
 export async function submitCreatePolls({
     pollName,
@@ -80,14 +80,14 @@ export async function submitVote({
         Buffer.from('' + pollId, "utf8"),
         Buffer.from('' + index, "utf8"),
     ]
-    const signage = createSignature({
+    const signage = await createSignature({
         data: tosign.toString(),
         protocolID: "votesigntest1",
         keyID: "1test",
         description: "Allows topic manager to confirm votes test",
         counterparty: "self",
     })
-    const OutputScript = pushdrop.create({
+    const OutputScript = await pushdrop.create({
         fields: tosign,
         protocolID: "votetest1",
         keyID: "1test",
@@ -98,18 +98,19 @@ export async function submitVote({
         outputs: [{
             satoshis: 1,
             script: OutputScript,
-            customInstructions: '' + signage,
+            customInstructions: '' ,
         }],
         description: 'vote poll test'
     })
 
-    const beef = toBEEFfromEnvelope({
+    const beef = await toBEEFfromEnvelope({
         rawTx: newToken.rawTx! as string,
         inputs: newToken.inputs! as Record<string, EnvelopeEvidenceApi>,
         txid: newToken.txid
     }).beef
+    console.log(`sending server: ${beef}`)
 
-    const response = await fetch(`http://localhost:8090//vote`, {
+    const response = await fetch(`${pollrHost}/submit`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/octet-stream',
@@ -119,15 +120,13 @@ export async function submitVote({
     })
     const parsedResponse = await response.json()
 
-    console.log(parsedResponse)
+    console.log(`server response: ${parsedResponse}`)
     return parsedResponse
 }
 
 export async function closePoll({
-    pollId, results, options }: {
+    pollId}: {
         pollId: string,
-        results: number[],
-        options: string[]
     }): Promise<string> {
 
     // const formattedBuffers: Buffer[] = options.map((option, index) => {
@@ -140,41 +139,84 @@ export async function closePoll({
         identityKey: true
     })
     /////////////////////////////// missing step is to spend all tokens related to this poll.
-    const OutputScript = pushdrop.create({
-        fields: [
-            Buffer.from("close", "utf8"),
-            Buffer.from('' + walID, "utf8"),
-            Buffer.from('' + pollId, "utf8"),
-            ...options.map((opt, i) => Buffer.from(`${opt}:${results[i]}`, "utf8"))
-        ],
-        protocolID: "pollclosetest1",
-        keyID: "3test",
-    })
-    const newToken = await createAction({
-        outputs: [{
-            satoshis: 1,
-            script: OutputScript,
-        }],
-        description: 'Close poll test'
-    })
+    // const OutputScript = pushdrop.create({
+    //     fields: [
+    //         Buffer.from("close", "utf8"),
+    //         Buffer.from('' + walID, "utf8"),
+    //         Buffer.from('' + pollId, "utf8"),
+    //         ...options.map((opt, i) => Buffer.from(`${opt}:${results[i]}`, "utf8"))
+    //     ],
+    //     protocolID: "pollclosetest1",
+    //     keyID: "3test",
+    // })
+    // const newToken = await createAction({
+    //     outputs: [{
+    //         satoshis: 1,
+    //         script: OutputScript,
+    //     }],
+    //     description: 'Close poll test'
+    // })
 
-    const beef = toBEEFfromEnvelope({
-        rawTx: newToken.rawTx! as string,
-        inputs: newToken.inputs! as Record<string, EnvelopeEvidenceApi>,
-        txid: newToken.txid
-    }).beef
+    // const beef = toBEEFfromEnvelope({
+    //     rawTx: newToken.rawTx! as string,
+    //     inputs: newToken.inputs! as Record<string, EnvelopeEvidenceApi>,
+    //     txid: newToken.txid
+    // }).beef
 
-    const response = await fetch(`http:/localhost:8090/close`, {
+    // const response = await fetch(`${pollrHost}/submit`, {
+    //     method: 'POST',
+    //     headers: {
+    //         'Content-Type': 'application/octet-stream',
+    //         'X-Topics': JSON.stringify(['tm_pollr'])
+    //     },
+    //     body: new Uint8Array(beef)
+    // })
+
+    let query = {} as PollQuery
+    query.type = 'poll'
+    query.status = 'open'
+    query.pollId = pollId
+    let question = {} as LookupQuestion
+    question.query = query
+    question.service = 'ls_pollr'
+    let response = await fetch(`${pollrHost}/lookup`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/octet-stream',
-            'X-Topics': JSON.stringify(['tm_pollr'])
+            'X-Topics': JSON.stringify(['ls_pollr'])
         },
-        body: new Uint8Array(beef)
+        body: JSON.stringify(question)
     })
-    const parsedResponse = await response.json()
 
-    console.log(parsedResponse)
+    let parsedResponse = await response.json()
+    console.log(`poll close request${JSON.stringify(parsedResponse)}`)
+
+    query.type = 'vote'
+    query.status = 'all'
+    query.pollId = pollId
+    question.query = query
+    question.service = 'ls_pollr'
+    response = await fetch(`${pollrHost}/lookup`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/octet-stream',
+            'X-Topics': JSON.stringify(['ls_pollr'])
+        },
+        body: JSON.stringify(question)
+    })
+    
+    parsedResponse = await response.json()
+    console.log(`vote close request${JSON.stringify(parsedResponse)}`)
+    const votes: VoteData [] = parsedResponse.result.voteDetails
+    votes.forEach((item: VoteData) => {
+        const decodedData = pushdrop.decode({
+            script:item.txid,
+            fieldFormat: 'buffer'
+        })
+        // console.log(`${JSON.stringify(decodedData.fields[0])}`)
+        console.log(`${decodedData.fields[0]}`)
+        // Process each item as needed
+      })
     return parsedResponse
 }
 export async function fetchAllpolls(): Promise<Poll[]> {
@@ -201,7 +243,7 @@ export async function fetchAllpolls(): Promise<Poll[]> {
 
     for (let i = 0; i < pollsData.length; i++) {
         const poll = pollsData[i]
-        let time = new Date(parseInt(poll.date, 10) * 1000);
+        let time = new Date(parseInt(poll.date, 10) * 1000)
 
         pollresutls.push({
             id: poll.pollId,
@@ -267,7 +309,7 @@ export async function fetchMypolls() {
 
     for (let i = 0; i < pollsData.length; i++) {
         const poll = pollsData[i]
-        let time = new Date(parseInt(poll.date, 10) * 1000);
+        let time = new Date(parseInt(poll.date, 10) * 1000)
         pollresutls.push({
             id: poll.pollId,
             name: poll.pollName,
@@ -302,7 +344,7 @@ export async function getClosedPolls() {
 
     for (let i = 0; i < pollsData.length; i++) {
         const poll = pollsData[i]
-        let time = new Date(parseInt(poll.date, 10) * 1000);
+        let time = new Date(parseInt(poll.date, 10) * 1000)
 
         pollresutls.push({
             id: poll.pollId,
@@ -310,7 +352,6 @@ export async function getClosedPolls() {
             desc: poll.pollDescription,
             date: time.toLocaleDateString(),
         })
-        // console.log(parsedResponse.result.polls)
     }
     return pollresutls
 }
@@ -335,7 +376,11 @@ export async function getPoll(pollId: string) {
     })
 
     const parsedResponse = await response.json()
-    console.log(parsedResponse.result)
-    
+    console.log(parsedResponse.result.polls[0].status)
+    const votesData = parsedResponse.result.votes[0] as Record<string, number>
+    const pollStatus = parsedResponse.result.polls[0].status
 
+    const listOfRecords: Record<string, number>[] = (Object.entries(votesData) as [string, number][])
+        .map(([option, count]) => ({ [option]: count }))
+    return {listOfRecords,pollStatus }
 }

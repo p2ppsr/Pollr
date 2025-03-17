@@ -216,7 +216,6 @@ app.get('/getDocumentationForLookupServiceProvider', (req, res) => {
 // Submit transactions and facilitate lookup requests
 app.post('/submit', (req, res) => {
     (async () => {
-        console.log("attempting to submit")
 
         try {
             // Parse out the topics and construct the tagged BEEF
@@ -229,6 +228,7 @@ app.post('/submit', (req, res) => {
             // Using a callback function, we can just return once our steak is ready
             // instead of having to wait for all the broadcasts to occur.
             await engine.submit(taggedBEEF, (steak: STEAK) => {
+                console.log("LEAVING SUBMIT, RESPONDING")
                 return res.status(200).json(steak)
             })
         } catch (error) {
@@ -248,25 +248,11 @@ app.post('/submit', (req, res) => {
 
 app.post('/lookup', (req, res) => {
     (async () => {
-        console.log("attempting to lookup")
         try {
-            // If req.body is a string, parse it; if it's already an object, use it directly.
             let parsedBody: LookupQuestion = JSON.parse(req.body)
             let query: PollQuery = parsedBody.query as PollQuery
-            console.log(`Looking up ${query.type}`)
-            console.log(`Looking up ${query.voterId}`)
-            console.log(`Looking up ${query.status}`)
             const result: LookupAnswer = await engine.lookup(parsedBody)
-
-            // Define the output type matching LookupFormula.
-            if(result.type === "output-list")
-            {
-                console.log(`Returning ${result.type} with outputs:`, result.outputs);
-            }
-            else
-            console.log(`Returning ${result.type} with outputs:`);
-
-            return res.status(200).json(result);
+            return res.status(200).json(result)
         } catch (error) {
             console.error(error)
             return res.status(400).json({

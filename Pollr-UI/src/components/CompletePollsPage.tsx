@@ -1,39 +1,47 @@
-import React, { useEffect, useState } from "react";
-import PollsDisplay from "../utils/DisplayPolls";
-import { Poll } from "../types/types";
+import React, { useEffect, useState } from "react"
+import PollsDisplay from "../utils/DisplayPolls"
+import { Poll } from "../types/types"
 
 const fetchCompletedPolls = async (): Promise<Poll[]> => {
   return [
-    { id: 201, name: "best_movie", desc: "What is the best movie?", date: "02/10/25" },
-    { id: 202, name: "best_sport", desc: "What is the best sport?", date: "02/12/25" },
-  ];
-};
+   
+  ]
+}
 
-const fetchPollResults = async (pollId: number): Promise<{ type: "completed"; data: string[]; winner: string }> => {
+const fetchPollResults = async (pollId: number): Promise<{ type: "completed" ;data: string[]; winner: string }> => {
   const pollResults: Record<number, Record<string, number>> = {
-    201: { "Movie A": 35, "Movie B": 50, "Movie C": 20 },
-    202: { "Football": 45, "Basketball": 30, "Tennis": 25 },
-  };
 
-  const results = pollResults[pollId] || {};
-  const formattedResults = Object.entries(results).map(([choice, votes]) => `${choice}: ${votes} votes`);
+  }
+
+  const results = pollResults[pollId] || {}
+  const formattedResults = Object.entries(results).map(([choice, votes]) => `${choice}: ${votes} votes`)
 
   // Determine the winner by finding the option with the highest votes
-  const winner = Object.entries(results).reduce((max, entry) => (entry[1] > (results[max] || 0) ? entry[0] : max), "");
-
+  const winner = Object.entries(results).reduce((max, entry) => (entry[1] > (results[max] || 0) ? entry[0] : max), "")
   return {
     type: "completed",
     data: formattedResults,
     winner: winner,
-  };
-};
-
+  }
+}
+// export const vote = async (pollId: number): Promise<{ type: "open"; data: string[] }> => {
+//   let result: Record<string, number>[] = await fetchopenvotes(pollId.toString())
+//   const stringArray: string[] = result.map(record => {
+//     // Each record is assumed to have a single key-value pair.
+//     const [option, count] = Object.entries(record)[0]
+//     return `${option}: ${count}`
+//   })
+//   return {
+//     type: "open",
+//     data:stringArray,
+//   }
+// }
 const CompletedPollsPage: React.FC = () => {
-  const [polls, setPolls] = useState<Poll[]>([]);
+  const [polls, setPolls] = useState<Poll[]>([])
 
   useEffect(() => {
-    fetchCompletedPolls().then(setPolls);
-  }, []);
+    fetchCompletedPolls().then(setPolls)
+  }, [])
 
   return (
     <PollsDisplay 
@@ -42,7 +50,7 @@ const CompletedPollsPage: React.FC = () => {
       title="Completed Polls" 
       actionLabel="Poll Results"
     />
-  );
-};
+  )
+}
 
-export default CompletedPollsPage;
+export default CompletedPollsPage

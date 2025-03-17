@@ -1,9 +1,9 @@
-import React from "react";
-import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
-import { Typography, Container, Button, Box, Grid } from "@mui/material";
-import ActivePollsPage from "./components/ActivePollsPage";
-import CreatePoll from "./components/CreatePollForm";
-import MyPolls from "./components/MyPollsPage";
+import React from "react"
+import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom"
+import { Typography, Container, Button, Box, Grid } from "@mui/material"
+import ActivePollsPage from "./components/ActivePollsPage"
+import CreatePoll from "./components/CreatePollForm"
+import MyPolls from "./components/MyPollsPage"
 import CompletedPolls from "./components/CompletePollsPage"
 const App: React.FC = () => {
   return (
@@ -47,7 +47,7 @@ const App: React.FC = () => {
         </Routes>
       </Container>
     </Router>
-  );
-};
+  )
+}
 
-export default App;
+export default App
