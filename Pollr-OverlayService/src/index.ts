@@ -216,7 +216,6 @@ app.get('/getDocumentationForLookupServiceProvider', (req, res) => {
 // Submit transactions and facilitate lookup requests
 app.post('/submit', (req, res) => {
     (async () => {
-
         try {
             // Parse out the topics and construct the tagged BEEF
             const topics = JSON.parse(req.headers['x-topics'] as string)
@@ -310,28 +309,6 @@ app.post('/requestSyncResponse', (req, res) => {
     })
 })
 
-app.post('/requestForeignGASPNode', (req, res) => {
-    (async () => {
-        try {
-            console.log(req.body)
-            const { graphID, txid, outputIndex, metadata } = req.body
-            const response = await engine.provideForeignGASPNode(graphID, txid, outputIndex)
-            return res.status(200).json(response)
-        } catch (error) {
-            console.error(error)
-            return res.status(400).json({
-                status: 'error',
-                message: error instanceof Error ? error.message : 'An unknown error occurred'
-            })
-        }
-    })().catch(() => {
-        res.status(500).json({
-            status: 'error',
-            message: 'Unexpected error'
-        })
-    })
-})
-
 app.post('/migrate', (req, res) => {
     (async () => {
         if (
@@ -385,11 +362,6 @@ initialization()
                     await engine.syncAdvertisements()
                 } catch (error) {
                     console.error('Failed to sync advertisements:', error)
-                }
-                try {
-                    await engine.startGASPSync()
-                } catch (error) {
-                    console.error('Failed to complete GASP sync:', error)
                 }
             })().catch((error) => {
                 console.error('Unexpected error occurred:', error)
