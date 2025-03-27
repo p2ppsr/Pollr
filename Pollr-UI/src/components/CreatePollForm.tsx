@@ -7,29 +7,22 @@ import {Option} from '../types/types'
 const PollForm: React.FC = () => {
   const [pollName, setPollName] = useState<string>('')
   const [pollDescription, setPollDescription] = useState<string>('')
-  // Keep the raw input as a string
   const [numberOfOptions, setNumberOfOptions] = useState<string>('2')
   const [optionsType, setOptionsType] = useState<'text' | 'image'>('text')
-  // Initialize with two empty options
   const [options, setOptions] = useState<Option[]>([{ value: '' }, { value: '' }])
-
-  // Update state on each change without forcing a value
   const handleNumberOfOptionsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setNumberOfOptions(value)
 
-    // If the current input is a valid number within range, update the options array live
     const count = parseInt(value, 10)
     if (!isNaN(count) && count >= 2 && count <= 10) {
       setOptions((prevOptions) => {
         const newOptions = [...prevOptions]
         if (count > prevOptions.length) {
-          // Add new empty options if count increased
           for (let i = prevOptions.length; i < count; i++) {
             newOptions.push({ value: '' })
           }
         } else {
-          // Trim the options array if count is reduced
           newOptions.length = count
         }
         return newOptions
@@ -37,7 +30,6 @@ const PollForm: React.FC = () => {
     }
   }
 
-  // On blur, enforce the range and update options accordingly
   const handleNumberOfOptionsBlur = () => {
     let count = parseInt(numberOfOptions, 10)
     if (isNaN(count) || count < 2) {
@@ -45,9 +37,7 @@ const PollForm: React.FC = () => {
     } else if (count > 10) {
       count = 10
     }
-    // Update the input field to show the valid number
     setNumberOfOptions(count.toString())
-    // Update the options array accordingly
     setOptions((prevOptions) => {
       const newOptions = [...prevOptions]
       if (count > prevOptions.length) {
@@ -94,7 +84,7 @@ const PollForm: React.FC = () => {
     })
     setTimeout(() => {
         window.location.reload();
-      }, 3000);
+      }, 5000);
     console.log({
       pollName,
       pollDescription,
