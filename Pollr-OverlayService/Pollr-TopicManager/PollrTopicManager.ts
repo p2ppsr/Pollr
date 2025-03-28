@@ -114,7 +114,7 @@ export class PollrTopicManager implements TopicManager {
         } catch (err) {
             console.error('Error identifying admissible outputs:', err)
         }
-        console.log("TM LEAVING!")
+        console.log("TM LEAVING!")//debug purpose /will remove after tests
         return {
             outputsToAdmit,
             coinsToRetain: []

@@ -10,7 +10,7 @@ export interface Pollrvotes {
   }
   export type PollQuery = {
     type: "vote" | "poll"
-    pollId?: string
+    txid?: string
     voterId?: string
     status?: "open" | "closed" | "all" | "any1"
   }

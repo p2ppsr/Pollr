@@ -121,7 +121,7 @@ export class PollrLookupService implements LookupService {
                     txid,
                     outputIndex,
                     walID: decodedOutput.fields[1].toString(),
-                    pollId: decodedOutput.fields[2].toString(),
+                    // pollId: decodedOutput.fields[2].toString(),
                     index: decodedOutput.fields[3].toString()
                 })
             } else {
@@ -163,13 +163,13 @@ export class PollrLookupService implements LookupService {
         }
     }
 
-    async getVotesforPoll(pollId: string): Promise<Record<string, number>> {
+    async getVotesforPoll(txid: string): Promise<Record<string, number>> {
         // console.log(pollId)
-        const votesArray = await this.votes?.find({ pollId: pollId }).toArray()
-        const poll = await this.opens?.findOne({ pollId: pollId })
+        const votesArray = await this.votes?.find({ txid: txid }).toArray()
+        const poll = await this.opens?.findOne({ txid: txid })
 
         if (!poll) {
-            throw new Error(`Poll not found for pollId: ${pollId}`)
+            throw new Error(`Poll not found for pollId: ${txid}`)
         }
 
         // Use the options array from the poll, e.g. ["Option1", "Option2", "Option3"]
@@ -230,16 +230,16 @@ export class PollrLookupService implements LookupService {
         if (question.service !== 'ls_pollr') {
             throw new Error(`Invalid service name "${question.service}" for this lookup service.`)
         }
-        const { type, pollId, voterId, status } = question.query as PollQuery
+        const { type, txid, voterId, status } = question.query as PollQuery
         // Helper function to validate non-empty strings
         const isValid = (val?: string) => Boolean(val && val.trim())
         let cursor: any
 
-        if (type === "vote" && isValid(pollId) ) {
+        if (type === "vote" && isValid(txid) ) {
             if(status == "all")
             {
-                cursor = await this.votes?.find({pollId: pollId }).toArray()
-                console.log(`searching for all votes with this poll id: ${pollId}, Got: ${JSON.stringify(cursor)}`)
+                cursor = await this.votes?.find({txid: txid }).toArray()
+                console.log(`searching for all votes with this poll id: ${txid}, Got: ${JSON.stringify(cursor)}`)
                 return {
                     type: "freeform",
                     result: {
@@ -248,7 +248,7 @@ export class PollrLookupService implements LookupService {
                 }
             }
             else if( isValid(voterId)){
-                cursor = await this.votes?.findOne({ walID: voterId, pollId: pollId })
+                cursor = await this.votes?.findOne({ walID: voterId, txid: txid })
                 return {
                     type: "freeform",
                     result: {
@@ -263,13 +263,13 @@ export class PollrLookupService implements LookupService {
             let dbpolls: {}[] = []
             if (status == "any1") {
                 if (isValid(voterId)) {
-                    cursor = await this.opens?.find({ pollId: pollId }).toArray()
+                    cursor = await this.opens?.find({ txid: txid }).toArray()
                     for await (const result of cursor!) {
-                        pollvotes.push(await this.getVotesforPoll(result.pollId))
+                        pollvotes.push(await this.getVotesforPoll(result.txid))
                         dbpolls.push({
                             txid: result.txid,
                             pollName: result.pollName,
-                            pollId: result.pollId,
+                            // pollId: result.pollId,
                             pollDescription: result.pollDescription,
                             numOptions: result.numOptions,
                             optionsType: result.optionsType,
@@ -279,13 +279,13 @@ export class PollrLookupService implements LookupService {
                             status: 'open'
                         })
                     }
-                    cursor = await this.closes?.find({ pollId: pollId }).toArray()
+                    cursor = await this.closes?.find({ txid: txid }).toArray()
                     for await (const result of cursor!) {
-                        pollvotes.push(await this.getVotesforPoll(result.pollId))
+                        pollvotes.push(await this.getVotesforPoll(result.txid))
                         dbpolls.push({
                             txid: result.txid,
                             pollName: result.pollName,
-                            pollId: result.pollId,
+                            // pollId: result.pollId,
                             pollDescription: result.pollDescription,
                             numOptions: result.numOptions,
                             optionsType: result.optionsType,
@@ -304,11 +304,11 @@ export class PollrLookupService implements LookupService {
                 cursor = await this.opens?.find({}).toArray()
                 for await (const result of cursor!) {
                     // console.log(`getting votes for ${result.pollId}`)
-                    pollvotes.push(await this.getVotesforPoll(result.pollId))
+                    pollvotes.push(await this.getVotesforPoll(result.txid))
                     dbpolls.push({
                         txid: result.txid,
                         pollName: result.pollName,
-                        pollId: result.pollId,
+                        // pollId: result.pollId,
                         pollDescription: result.pollDescription,
                         numOptions: result.numOptions,
                         optionsType: result.optionsType,
@@ -320,13 +320,13 @@ export class PollrLookupService implements LookupService {
             }
             if (status === "closed") {
                 //Fetch all closed polls or a specific closed poll
-                if (isValid(pollId)) {
-                    cursor = await this.closes?.findOne({ pollId })
+                if (isValid(txid)) {
+                    cursor = await this.closes?.findOne({ txid })
                     // pollvotes.push(cursor.results)
                     dbpolls.push({
                         txid: cursor.txid,
                         pollName: cursor.pollName,
-                        pollId: cursor.pollId,
+                        // pollId: cursor.pollId,
                         pollDescription: cursor.pollDescription,
                         numOptions: cursor.numOptions,
                         optionsType: cursor.optionsType,
@@ -345,7 +345,7 @@ export class PollrLookupService implements LookupService {
                     dbpolls.push({
                         txid: result.txid,
                         pollName: result.pollName,
-                        pollId: result.pollId,
+                        // pollId: result.pollId,
                         pollDescription: result.pollDescription,
                         numOptions: result.numOptions,
                         optionsType: result.optionsType,
@@ -360,14 +360,14 @@ export class PollrLookupService implements LookupService {
 
             if (status === "open") {
                 //Fetch all open polls or a specific open poll
-                if (isValid(pollId)) {
-                    cursor = await this.opens?.findOne({ pollId: pollId })
-                    pollvotes.push(await this.getVotesforPoll(cursor.pollId))
+                if (isValid(txid)) {
+                    cursor = await this.opens?.findOne({ txid: txid })
+                    pollvotes.push(await this.getVotesforPoll(cursor.txid))
                     // console.log(`votes are: ${JSON.stringify(pollvotes)}`)
                     dbpolls.push({
                         txid: cursor.txid,
                         pollName: cursor.pollName,
-                        pollId: cursor.pollId,
+                        // pollId: cursor.pollId,
                         pollDescription: cursor.pollDescription,
                         numOptions: cursor.numOptions,
                         optionsType: cursor.optionsType,
@@ -380,11 +380,11 @@ export class PollrLookupService implements LookupService {
                 else {
                     cursor = await this.opens?.find({}).toArray()
                     for await (const result of cursor!) {
-                        pollvotes.push(await this.getVotesforPoll(result.pollId))
+                        pollvotes.push(await this.getVotesforPoll(result.txid))
                         dbpolls.push({
                             txid: result.txid,
                             pollName: result.pollName,
-                            pollId: result.pollId,
+                            // pollId: result.pollId,
                             pollDescription: result.pollDescription,
                             numOptions: result.numOptions,
                             optionsType: result.optionsType,
