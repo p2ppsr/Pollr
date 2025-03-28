@@ -1,9 +1,9 @@
 import { AdmittanceInstructions, TopicManager, LookupAnswer, LookupFormula } from '@bsv/overlay'
-import { LookupQuestion, PublicKey, Transaction, Signature } from '@bsv/sdk'
-import { verifySignature } from "@babbage/sdk-ts"
+import { LookupQuestion, PublicKey, Transaction, Signature, PushDrop, ProtoWallet } from '@bsv/sdk'
+// import { verifySignature } from "@babbage/sdk-ts"
 import { PollrLookupService } from '../Pollr-LookupService/PollrLookupService.js'
 import { PollQuery } from '../Pollr-LookupService/types.js'
-import pushdrop from 'pushdrop'
+// import pushdrop from 'pushdrop'
 export class PollrTopicManager implements TopicManager {
     constructor(private lookupService: PollrLookupService) { }
     /**
@@ -18,12 +18,17 @@ export class PollrTopicManager implements TopicManager {
             const parsedTransaction = Transaction.fromBEEF(beef)
             for (const [i, output] of parsedTransaction.outputs.entries()) {
                 try {
-                    const decodedOutput = await pushdrop.decode({
-                        script: output.lockingScript.toHex(),
-                        fieldFormat: 'buffer'
-                    })
+                    const decodedOutput = await PushDrop.decode( output.lockingScript)
+                    const anyoneWallet = new ProtoWallet('anyone')
+                    const signature = decodedOutput.fields.pop() as number[]
+                   
+
+
+
+
+                    //////////////////////////////////
                     let result
-                    const firstField = decodedOutput.fields[0].toString("utf8")
+                    const firstField = decodedOutput.fields[0].toString()
                     if (firstField === "vote") {
                        // console.log(`checking amount of fields. `)
 
@@ -67,11 +72,15 @@ export class PollrTopicManager implements TopicManager {
                             }
                         }
                         //check valid signiture
-                        const pubKey = PublicKey.fromString(decodedOutput.lockingPublicKey)
-                        const hasValidSignature = pubKey.verify(
-                            Array.from(Buffer.concat(decodedOutput.fields)),
-                            Signature.fromDER(decodedOutput.signature, 'hex')
-                        )
+                        const data = decodedOutput.fields.reduce((a, e) => [...a, ...e], [])
+                        const { valid: hasValidSignature } = await anyoneWallet.verifySignature({
+                            data,
+                            signature,
+                            counterparty: decodedOutput.fields[1].toString(),
+                            protocolID: [1, 'identity'],
+                            keyID: '1'
+                          })
+                          if (!hasValidSignature) throw new Error('Invalid signature!')
 
                         if (!hasValidSignature) {
                             console.log('tm vote sign issue\n%O', result)
@@ -82,13 +91,15 @@ export class PollrTopicManager implements TopicManager {
                     } else if (firstField === "open") {
                         console.log("tm Processing a poll opening...")
                         if (Array.isArray(decodedOutput.fields) && decodedOutput.fields.length !== 7 + Number(decodedOutput.fields[4])) {
-                            throw new Error('Token did not meet criteria.')
+                            throw new Error('Open oken did not meet criteria.')
                         }
                         console.log('tm poll added successfully to the database:\n%O', result)
 
                     } else if (firstField === "close") {
                         console.log("tm Processing a close...")
-
+                        if (Array.isArray(decodedOutput.fields) && decodedOutput.fields.length !== 4) {
+                            throw new Error('close Token did not meet criteria.')
+                        }
                         console.log("tm Poll successfully closed...")
 
                     } else {

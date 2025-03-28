@@ -18,33 +18,33 @@ export class PollrLookupService implements LookupService {
      * Processes the event when a new UTXO is added to a voting topic.
      * This keeps track of open polls and votes.
      */
-    async getNextId(): Promise<number> {
-        console.log("Getting the next ID")
-        try {
-            // Query for the current document
-            const currentDoc = await this.nextid?.findOne({})
-            let currentId: number
+    // async getNextId(): Promise<number> {
+    //     console.log("Getting the next ID")
+    //     try {
+    //         // Query for the current document
+    //         const currentDoc = await this.nextid?.findOne({})
+    //         let currentId: number
 
-            if (!currentDoc) {
-                // If no document exists, start at 1
-                currentId = 1
-            } else {
-                currentId = currentDoc.nextId
-            }
+    //         if (!currentDoc) {
+    //             // If no document exists, start at 1
+    //             currentId = 1
+    //         } else {
+    //             currentId = currentDoc.nextId
+    //         }
 
-            // Delete all documents in the collection
-            await this.nextid?.deleteMany({})
+    //         // Delete all documents in the collection
+    //         await this.nextid?.deleteMany({})
 
-            // Insert new document with the next ID
-            await this.nextid?.insertOne({ nextId: currentId + 1 })
+    //         // Insert new document with the next ID
+    //         await this.nextid?.insertOne({ nextId: currentId + 1 })
 
-            console.log(`ID is: ${currentId}`)
-            return currentId
-        } catch (error) {
-            console.error("Error updating next ID:", error)
-            return -1
-        }
-    }
+    //         console.log(`ID is: ${currentId}`)
+    //         return currentId
+    //     } catch (error) {
+    //         console.error("Error updating next ID:", error)
+    //         return -1
+    //     }
+    // }
 
 
     async connectToDB(): Promise<void> {
@@ -99,13 +99,13 @@ export class PollrLookupService implements LookupService {
 
             } else if (firstField === "open") {
                 // console.log("ls Processing a poll opening...")
-                const id = await this.getNextId()
+                // const id = await this.getNextId()
                 const result = await this.opens?.insertOne({
                     txid,
                     outputIndex,
                     walID: decodedOutput.fields[1].toString(),
                     pollName: decodedOutput.fields[2].toString(),
-                    pollId: id.toString(),
+                    // pollId: id.toString(),
                     pollDescription: decodedOutput.fields[3].toString(),
                     numOptions: parseInt(decodedOutput.fields[4].toString(), 10),  // Ensure it's a number
                     optionsType: decodedOutput.fields[5].toString(),
