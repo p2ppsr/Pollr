@@ -2,7 +2,7 @@
 // import { toEnvelopeFromBEEF } from '@babbage/sdk-ts/dist/toEnvelopeFromBEEF'
 // import { toEnvelopeFromBEEF } from '@babbage/sdk-ts'
 // import pushdrop from 'pushdrop'
-import { WalletClient, PushDrop, Utils } from '@bsv/sdk'
+import { WalletClient, PushDrop, Utils, Transaction } from '@bsv/sdk'
 import { getPublicKey, createSignature } from "@babbage/sdk-ts"
 import { Option, PollQuery, OptionResults, Poll, VoteData } from '../types/types'
 import { LookupQuestion } from '@bsv/overlay'
@@ -23,84 +23,76 @@ export async function submitCreatePolls({
     const walID = await WC.getPublicKey({
         identityKey: true
     })
-   
+
     const PD = new PushDrop(WC)
-    const OutputScript = await PD.lock(
-        [
-            Utils.toArray({
-                "open": "open",
-                "walID": walID,
-                "pollName": pollName,
-                "pollDescription": pollDescription,
-                "optionsLength": options.length,
-                "timestamp": Math.floor(Date.now() / 1000),
-                "options": options.map((opt) => opt.value)
-              }, 'utf8')
-        ],
-        [0, 'testpoll'],
-        '1',
-        'self'
-    )
-    const newPollToken = await WC.createAction({
-        outputs: [{
-          lockingScript: OutputScript.toHex(),
-          satoshis: Number(1),
-          basket: 'todo tokens',
-          outputDescription: 'New Poll'
-        }],
-        options: {
-          randomizeOutputs: false,
-          acceptDelayedBroadcast: false
-        },
-        // Describe the Actions that your app facilitates, in the present
-        // tense, for the user's future reference.
-        description: `Create a Poll: ${pollName}`
-      })
-      const beef = newPollToken.tx
-    // const walID = await getPublicKey({
-    //     identityKey: true
-    // })
-    // const OutputScript = await pushdrop.create({
-    //     fields: [
-    //         Buffer.from("open", "utf8"),
-    //         Buffer.from('' + walID, "utf8"),
-    //         Buffer.from('' + pollName, "utf8"),
-    //         Buffer.from('' + pollDescription, "utf8"),
-    //         Buffer.from('' + options.length.toString(), "utf8"),
-    //         Buffer.from('' + optionsType, "utf8"),
-    //         Buffer.from('' + (Math.floor(Date.now() / 1000)).toString(), "utf8"),
-    //         ...options.map((opt) => Buffer.from(opt.value, "utf8"))
-    //     ],
-    //     protocolID: "plrct1",
-    //     keyID: "0",
-    // })
-    // const newToken = await createAction({
-    //     outputs: [{
-    //         satoshis: 1,
-    //         script: OutputScript,
-    //         basket: "mypollstest2",
-    //     }],
-    //     description: 'Create poll test'
-    // })
+    // Create an array of Buffers from your different fields
+   // Create an array of Buffers for each field.
+const fields = [
+    Buffer.from("open", "utf8"),
+    Buffer.from('' + walID.publicKey, "utf8"),           // Ensure walID is a string
+    Buffer.from('' + pollName, "utf8"),
+    Buffer.from('' + pollDescription, "utf8"),
+    Buffer.from('' + options.length.toString(), "utf8"),
+    Buffer.from('' + optionsType, "utf8"),
+    Buffer.from('' + Math.floor(Date.now() / 1000).toString(), "utf8"),
+    ...options.map((opt) => Buffer.from(opt.value, "utf8"))
+  ]
+  
+  // Use the Writer to structure the data.
+  // For each field, first write its length (using a variable-length integer)
+  // then write the field data.
+  const writer = new Utils.Writer()
+  
+  for (const field of fields) {
+    writer.writeVarIntNum(field.length)
+    writer.write(Array.from(field))
+  }
+  
+  // Get the flattened array representing the entire payload.
+  const flattenedArray = writer.toArray()
+  
+  // Use this flattenedArray with your locking function
+  const OutputScript = await PD.lock(
+    [flattenedArray],
+    [0, 'testpoll'],
+    '1',
+    'self'
+  )
+  
+  // Then create the token as before.
+  const newPollToken = await WC.createAction({
+    outputs: [{
+      lockingScript: OutputScript.toHex(),
+      satoshis: 1,
+      basket: 'poll tokens',
+      outputDescription: 'New Poll'
+    }],
+    options: {
+      randomizeOutputs: false,
+      acceptDelayedBroadcast: false
+    },
+    description: `Create a Poll: ${pollName}`
+  })
+  
+    const tx = Transaction.fromAtomicBEEF(newPollToken.tx!)
+    if (!tx) {
+        throw new Error("Transaction creation failed: tx is undefined")
+    }
+    const beef = Transaction.fromAtomicBEEF(newPollToken.tx!).toBEEF()
 
-    // const beef = toBEEFfromEnvelope({
-    //     rawTx: newToken.rawTx! as string,
-    //     inputs: newToken.inputs! as Record<string, EnvelopeEvidenceApi>,
-    //     txid: newToken.txid
-    // }).beef
-
+    console.log(`sending ${beef}`)
     const response = await fetch(`${pollrHost}/submit`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/octet-stream',
             'X-Topics': JSON.stringify(['tm_pollr'])
         },
-        // body: new Uint8Array(beef)
+        body: new Uint8Array(beef)
     })
     const parsedResponse = await response.json()
 
     console.log(`response: ${parsedResponse}`)
-    return parsedResponse
+    return "parsedResponse"
 }
 // export async function submitVote({
 //     pollId,
@@ -279,7 +271,7 @@ export async function submitCreatePolls({
 //     const pollsData = parsedResponse.result.polls
 //     const votesData = parsedResponse.result.votes
 
-//     for (let i = 0; i < pollsData.length; i++) {
+//     for (let i = 0 i < pollsData.length i++) {
 //         const poll = pollsData[i]
 //         let time = new Date(parseInt(poll.date, 10) * 1000)
 
@@ -345,7 +337,7 @@ export async function submitCreatePolls({
 //     const pollsData = parsedResponse.result.polls
 //     const votesData = parsedResponse.result.votes
 
-//     for (let i = 0; i < pollsData.length; i++) {
+//     for (let i = 0 i < pollsData.length i++) {
 //         const poll = pollsData[i]
 //         let time = new Date(parseInt(poll.date, 10) * 1000)
 //         pollresutls.push({
@@ -380,7 +372,7 @@ export async function submitCreatePolls({
 //     const pollsData = parsedResponse.result.polls
 //     const votesData = parsedResponse.result.votes
 
-//     for (let i = 0; i < pollsData.length; i++) {
+//     for (let i = 0 i < pollsData.length i++) {
 //         const poll = pollsData[i]
 //         let time = new Date(parseInt(poll.date, 10) * 1000)
 

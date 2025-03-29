@@ -1,5 +1,5 @@
 import { AdmittanceInstructions, TopicManager, LookupAnswer, LookupFormula } from '@bsv/overlay'
-import { LookupQuestion, PublicKey, Transaction, Signature, PushDrop, ProtoWallet } from '@bsv/sdk'
+import { LookupQuestion, PublicKey, Transaction, Signature, PushDrop, ProtoWallet, Utils } from '@bsv/sdk'
 // import { verifySignature } from "@babbage/sdk-ts"
 import { PollrLookupService } from '../Pollr-LookupService/PollrLookupService.js'
 import { PollQuery } from '../Pollr-LookupService/types.js'
@@ -18,25 +18,32 @@ export class PollrTopicManager implements TopicManager {
             const parsedTransaction = Transaction.fromBEEF(beef)
             for (const [i, output] of parsedTransaction.outputs.entries()) {
                 try {
-                    const decodedOutput = await PushDrop.decode( output.lockingScript)
+                    console.log("attemping to decode")
+                    const decodedOutput = await PushDrop.decode(output.lockingScript)
+                    console.log(JSON.stringify(decodedOutput))
                     const anyoneWallet = new ProtoWallet('anyone')
+                    console.log("attemping to remove last field")
+
                     const signature = decodedOutput.fields.pop() as number[]
-                   
-
-
-
-
                     //////////////////////////////////
                     let result
-                    const firstField = decodedOutput.fields[0].toString()
-                    if (firstField === "vote") {
-                       // console.log(`checking amount of fields. `)
+                    const reader = new Utils.Reader(decodedOutput.fields[0]);
+                    const decodedFields = [];
+                    while (!reader.eof()) {
+                        const fieldLength = reader.readVarIntNum();
+                        const fieldBytes = reader.read(fieldLength);
+                        decodedFields.push(Utils.toUTF8(fieldBytes));
+                    }
+                    console.log(decodedFields);
+                    console.log(`ff: ${JSON.stringify(decodedFields)}`)
+                    if (decodedFields[0] === "vote") {
+                        // console.log(`checking amount of fields. `)
 
                         if (Array.isArray(decodedOutput.fields) && decodedOutput.fields.length !== 4) {
                             throw new Error('Token did not meet criteria.')
                         }
                         let pollQuery: PollQuery = {} as PollQuery
-                        pollQuery.pollId = decodedOutput.fields[2].toString()
+                        // pollQuery.pollId = decodedOutput.fields[2].toString()
                         pollQuery.type = "poll"
                         pollQuery.status = "open"
                         let pollQuestion: LookupQuestion = {} as LookupQuestion
@@ -44,17 +51,16 @@ export class PollrTopicManager implements TopicManager {
                         pollQuestion.service = 'ls_pollr'
                         //check valid poll
                         const pollLSResult = await this.lookupService.lookup(pollQuestion)
-                        if ("type" in pollLSResult) 
-                        {
+                        if ("type" in pollLSResult) {
                             if (pollLSResult.type === "freeform") {
-                                let poll = pollLSResult.result as { polls: any[] , pollvotes:any[] }
+                                let poll = pollLSResult.result as { polls: any[], pollvotes: any[] }
                                 if (poll.polls.length != 1) {
                                     throw new Error("invalid poll")
                                 }
                             }
                         }
                         let voteQuery: PollQuery = {} as PollQuery
-                        voteQuery.pollId = decodedOutput.fields[2].toString()
+                        // voteQuery.pollId = decodedOutput.fields[2].toString()
                         voteQuery.type = "vote"
                         voteQuery.voterId = decodedOutput.fields[1].toString()
                         let question: LookupQuestion = {} as LookupQuestion
@@ -79,8 +85,8 @@ export class PollrTopicManager implements TopicManager {
                             counterparty: decodedOutput.fields[1].toString(),
                             protocolID: [1, 'identity'],
                             keyID: '1'
-                          })
-                          if (!hasValidSignature) throw new Error('Invalid signature!')
+                        })
+                        if (!hasValidSignature) throw new Error('Invalid signature!')
 
                         if (!hasValidSignature) {
                             console.log('tm vote sign issue\n%O', result)
@@ -88,16 +94,18 @@ export class PollrTopicManager implements TopicManager {
                         }
                         console.log('tm vote added successfully to the database:\n%O', result)
 
-                    } else if (firstField === "open") {
+                    } else if (decodedFields[0] === "open") {
                         console.log("tm Processing a poll opening...")
-                        if (Array.isArray(decodedOutput.fields) && decodedOutput.fields.length !== 7 + Number(decodedOutput.fields[4])) {
+                        console.log(`there are ${7 + Number(decodedOutput.fields[4])} inputs`)
+                        console.log(`there are ${decodedOutput.fields.length} inputs`)
+                        if (Array.isArray(decodedOutput.fields) && decodedFields.length !== 7 + Number(decodedFields[4])) {
                             throw new Error('Open oken did not meet criteria.')
                         }
                         console.log('tm poll added successfully to the database:\n%O', result)
 
-                    } else if (firstField === "close") {
+                    } else if (decodedFields[0] === "close") {
                         console.log("tm Processing a close...")
-                        if (Array.isArray(decodedOutput.fields) && decodedOutput.fields.length !== 4) {
+                        if (Array.isArray(decodedFields) && decodedFields.length !== 4) {
                             throw new Error('close Token did not meet criteria.')
                         }
                         console.log("tm Poll successfully closed...")
@@ -112,7 +120,7 @@ export class PollrTopicManager implements TopicManager {
             }
 
         } catch (err) {
-            console.error('Error identifying admissible outputs:', err)
+            // console.error('Error identifying admissible outputs:', err)
         }
         console.log("TM LEAVING!")//debug purpose /will remove after tests
         return {

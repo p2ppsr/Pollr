@@ -1,7 +1,7 @@
 import { LookupService, LookupQuestion, LookupAnswer, LookupFormula } from '@bsv/overlay'
-import { Script } from '@bsv/sdk'
+import { Script, PushDrop, Utils } from '@bsv/sdk'
 import { MongoClient, Collection } from 'mongodb'
-import pushdrop from 'pushdrop'
+// import pushdrop from 'pushdrop'
 import { PollQuery, VoteCounts } from './types.js'
 export type PollrStorage = {
     db_string: string
@@ -77,23 +77,27 @@ export class PollrLookupService implements LookupService {
     ): Promise<void> {
         this.onTopic(topic)
         try {
-            const decodedOutput = pushdrop.decode({
-                script: outputScript.toHex(),
-                fieldFormat: 'buffer',
-            })
+             const decodedOutput = await PushDrop.decode( outputScript)
             // console.log('Decoded Output:\n%O', decodedOutput)
             //////////////////////////////////////////////
             console.log(`outputScript" ${outputScript.toHex()}, txid: ${txid}`)
             let result
-            const firstField = decodedOutput.fields[0].toString("utf8")
+            const reader = new Utils.Reader(decodedOutput.fields[0])
+                                const decodedFields = []
+                                while (!reader.eof()) {
+                                    const fieldLength = reader.readVarIntNum()
+                                    const fieldBytes = reader.read(fieldLength)
+                                    decodedFields.push(Utils.toUTF8(fieldBytes))
+                                }
+            const firstField = decodedFields[0]
             if (firstField === "vote") {
                 console.log("ls Processing a vote...")
                 result = await this.votes?.insertOne({
                     txid,
                     outputIndex,
-                    walID: decodedOutput.fields[1].toString(),
-                    pollId: decodedOutput.fields[2].toString(),
-                    index: decodedOutput.fields[3].toString()
+                    walID: decodedFields[1].toString(),
+                    pollId: decodedFields[2].toString(),
+                    index: decodedFields[3].toString()
                 })
                 console.log('ls vote added successfully to the database:\n%O', result)
 
@@ -103,14 +107,14 @@ export class PollrLookupService implements LookupService {
                 const result = await this.opens?.insertOne({
                     txid,
                     outputIndex,
-                    walID: decodedOutput.fields[1].toString(),
-                    pollName: decodedOutput.fields[2].toString(),
+                    walID: decodedFields[1].toString(),
+                    pollName: decodedFields[2].toString(),
                     // pollId: id.toString(),
-                    pollDescription: decodedOutput.fields[3].toString(),
-                    numOptions: parseInt(decodedOutput.fields[4].toString(), 10),  // Ensure it's a number
-                    optionsType: decodedOutput.fields[5].toString(),
-                    date: decodedOutput.fields[6].toString(),
-                    options: decodedOutput.fields.slice(7, 7 + parseInt(decodedOutput.fields[4].toString(), 10)).map((buffer: any) => buffer.toString())
+                    pollDescription: decodedFields[3].toString(),
+                    numOptions: parseInt(decodedFields[4].toString(), 10),  // Ensure it's a number
+                    optionsType: decodedFields[5].toString(),
+                    date: decodedFields[6].toString(),
+                    options: decodedFields.slice(7, 7 + parseInt(decodedFields[4].toString(), 10)).map((buffer: any) => buffer.toString())
 
                 })
                 console.log('ls poll added successfully to the database:\n%O', result)
@@ -120,9 +124,9 @@ export class PollrLookupService implements LookupService {
                 result = await this.closes?.insertOne({
                     txid,
                     outputIndex,
-                    walID: decodedOutput.fields[1].toString(),
-                    // pollId: decodedOutput.fields[2].toString(),
-                    index: decodedOutput.fields[3].toString()
+                    walID: decodedFields[1].toString(),
+                    // pollId: decodedFields[2].toString(),
+                    index: decodedFields[3].toString()
                 })
             } else {
                 console.log("ls Invalid transaction type!")

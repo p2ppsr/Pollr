@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@mui/material";
 import "./DisplayPolls.css";
 import { Poll } from "../types/types";
-import { submitVote, closePoll } from "./PollrActions";
+// import { submitVote, closePoll } from "./PollrActions";
 interface PollsListProps {
   polls: Poll[];
   onPollClick: (pollId: number) => void;
@@ -75,7 +75,7 @@ export default function PollsDisplay({
     if (selectedPoll && selectedChoice) {
       // Extract only the part before the colon
       const voteOption = selectedChoice.split(":")[0].trim();
-      submitVote({ pollId: selectedPoll.toString(), index: voteOption });
+      // submitVote({ pollId: selectedPoll.toString(), index: voteOption });
     }
     setTimeout(() => {
       if(selectedPoll)
@@ -136,9 +136,9 @@ export default function PollsDisplay({
               ) : (
                 <p>No results available.</p>
               )}
-              <Button className="close-button" onClick={() => closePoll({pollId: selectedPoll.toString()})}>
+              {/* <Button className="close-button" onClick={() => closePoll({pollId: selectedPoll.toString()})}>
                 Close Poll
-              </Button>
+              </Button> */}
             </div>
           )}
           <div className="button-group">

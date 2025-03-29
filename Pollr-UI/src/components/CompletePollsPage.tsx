@@ -39,9 +39,9 @@ const fetchPollResults = async (pollId: number): Promise<{ type: "completed" ;da
 const CompletedPollsPage: React.FC = () => {
   const [polls, setPolls] = useState<Poll[]>([])
 
-  useEffect(() => {
-    fetchCompletedPolls().then(setPolls)
-  }, [])
+  // useEffect(() => {
+  //   fetchCompletedPolls().then(setPolls)
+  // }, [])
 
   return (
     <PollsDisplay 

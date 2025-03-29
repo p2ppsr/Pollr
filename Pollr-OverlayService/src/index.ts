@@ -223,6 +223,7 @@ app.post('/submit', (req, res) => {
                 beef: Array.from(req.body as number[]),
                 topics
             }
+                // console.log(`I GOT ${JSON.stringify(taggedBEEF)}`)
 
             // Using a callback function, we can just return once our steak is ready
             // instead of having to wait for all the broadcasts to occur.
@@ -230,6 +231,7 @@ app.post('/submit', (req, res) => {
                 console.log("LEAVING SUBMIT, RESPONDING")
                 return res.status(200).json(steak)
             })
+            // return res.status(200).json('')
         } catch (error) {
             console.error(error)
             return res.status(400).json({
