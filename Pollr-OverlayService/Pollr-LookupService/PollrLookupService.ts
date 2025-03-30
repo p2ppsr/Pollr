@@ -18,35 +18,7 @@ export class PollrLookupService implements LookupService {
      * Processes the event when a new UTXO is added to a voting topic.
      * This keeps track of open polls and votes.
      */
-    // async getNextId(): Promise<number> {
-    //     console.log("Getting the next ID")
-    //     try {
-    //         // Query for the current document
-    //         const currentDoc = await this.nextid?.findOne({})
-    //         let currentId: number
-
-    //         if (!currentDoc) {
-    //             // If no document exists, start at 1
-    //             currentId = 1
-    //         } else {
-    //             currentId = currentDoc.nextId
-    //         }
-
-    //         // Delete all documents in the collection
-    //         await this.nextid?.deleteMany({})
-
-    //         // Insert new document with the next ID
-    //         await this.nextid?.insertOne({ nextId: currentId + 1 })
-
-    //         console.log(`ID is: ${currentId}`)
-    //         return currentId
-    //     } catch (error) {
-    //         console.error("Error updating next ID:", error)
-    //         return -1
-    //     }
-    // }
-
-
+ 
     async connectToDB(): Promise<void> {
         const client = new MongoClient(this.storage.db_string)
 
@@ -169,7 +141,7 @@ export class PollrLookupService implements LookupService {
 
     async getVotesforPoll(txid: string): Promise<Record<string, number>> {
         // console.log(pollId)
-        const votesArray = await this.votes?.find({ txid: txid }).toArray()
+        const votesArray = await this.votes?.find({ pollId: txid }).toArray()
         const poll = await this.opens?.findOne({ txid: txid })
 
         if (!poll) {
@@ -238,11 +210,12 @@ export class PollrLookupService implements LookupService {
         // Helper function to validate non-empty strings
         const isValid = (val?: string) => Boolean(val && val.trim())
         let cursor: any
-
+        console.log(`query: ${ type} ${txid} ${voterId} ${status}  }`)
         if (type === "vote" && isValid(txid) ) {
             if(status == "all")
             {
-                cursor = await this.votes?.find({txid: txid }).toArray()
+                console.log(`trying to find: ${txid}`)
+                cursor = await this.votes?.find({pollId: txid }).toArray()
                 console.log(`searching for all votes with this poll id: ${txid}, Got: ${JSON.stringify(cursor)}`)
                 return {
                     type: "freeform",
@@ -252,7 +225,10 @@ export class PollrLookupService implements LookupService {
                 }
             }
             else if( isValid(voterId)){
-                cursor = await this.votes?.findOne({ walID: voterId, txid: txid })
+                console.log(`trying to find a specific vote : ${txid}, ${voterId}`)
+
+                cursor = await this.votes?.findOne({ walID: voterId, pollId: txid })
+                console.log(`found: ${JSON.stringify(cursor)}`)
                 return {
                     type: "freeform",
                     result: {
@@ -366,6 +342,7 @@ export class PollrLookupService implements LookupService {
                 //Fetch all open polls or a specific open poll
                 if (isValid(txid)) {
                     cursor = await this.opens?.findOne({ txid: txid })
+                    console.log(`looking for votes on poll: ${txid}`)
                     pollvotes.push(await this.getVotesforPoll(cursor.txid))
                     // console.log(`votes are: ${JSON.stringify(pollvotes)}`)
                     dbpolls.push({

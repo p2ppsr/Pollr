@@ -21,7 +21,6 @@ export class PollrTopicManager implements TopicManager {
                     console.log("attemping to decode")
                     const decodedOutput = await PushDrop.decode(output.lockingScript)
                     console.log(JSON.stringify(decodedOutput))
-                    const anyoneWallet = new ProtoWallet('anyone')
                     console.log("attemping to remove last field")
 
                     const signature = decodedOutput.fields.pop() as number[]
@@ -39,11 +38,11 @@ export class PollrTopicManager implements TopicManager {
                     if (decodedFields[0] === "vote") {
                         // console.log(`checking amount of fields. `)
 
-                        if (Array.isArray(decodedOutput.fields) && decodedOutput.fields.length !== 4) {
+                        if (Array.isArray(decodedFields) && decodedFields.length !== 4) {
                             throw new Error('Token did not meet criteria.')
                         }
                         let pollQuery: PollQuery = {} as PollQuery
-                        // pollQuery.pollId = decodedOutput.fields[2].toString()
+                        pollQuery.txid = decodedFields[2].toString()
                         pollQuery.type = "poll"
                         pollQuery.status = "open"
                         let pollQuestion: LookupQuestion = {} as LookupQuestion
@@ -60,15 +59,14 @@ export class PollrTopicManager implements TopicManager {
                             }
                         }
                         let voteQuery: PollQuery = {} as PollQuery
-                        // voteQuery.pollId = decodedOutput.fields[2].toString()
+                        voteQuery.txid = decodedFields[2].toString()
                         voteQuery.type = "vote"
-                        voteQuery.voterId = decodedOutput.fields[1].toString()
+                        voteQuery.voterId = decodedFields[1].toString()
                         let question: LookupQuestion = {} as LookupQuestion
                         question.query = voteQuery
                         question.service = 'ls_pollr'
                         //check dups
                         const lookupResult = await this.lookupService.lookup(question)
-                        console.log("checking the lookupresult now")
                         if ("type" in lookupResult) {
                             if (lookupResult.type === "freeform") {
                                 let vote = lookupResult.result as { voteDetails: string }
@@ -77,28 +75,29 @@ export class PollrTopicManager implements TopicManager {
                                 }
                             }
                         }
-                        //check valid signiture
-                        const data = decodedOutput.fields.reduce((a, e) => [...a, ...e], [])
-                        const { valid: hasValidSignature } = await anyoneWallet.verifySignature({
-                            data,
-                            signature,
-                            counterparty: decodedOutput.fields[1].toString(),
-                            protocolID: [1, 'identity'],
-                            keyID: '1'
-                        })
-                        if (!hasValidSignature) throw new Error('Invalid signature!')
+                        // //check valid signiture
+                        // const data = decodedOutput.fields.reduce((a, e) => [...a, ...e], [])
+                        // const anyoneWallet = new ProtoWallet('anyone')
+                        // const { valid: hasValidSignature } = await anyoneWallet.verifySignature({
+                        //     data,
+                        //     signature,
+                        //     counterparty: decodedFields[1].toString(),
+                        //     protocolID: [1, 'identity'],
+                        //     keyID: '1'
+                        // })
+                        // if (!hasValidSignature) throw new Error('Invalid signature!')
 
-                        if (!hasValidSignature) {
-                            console.log('tm vote sign issue\n%O', result)
-                            throw new Error('Invalid signature!')
-                        }
+                        // if (!hasValidSignature) {
+                        //     console.log('tm vote sign issue\n%O', result)
+                        //     throw new Error('Invalid signature!')
+                        // }
                         console.log('tm vote added successfully to the database:\n%O', result)
 
                     } else if (decodedFields[0] === "open") {
                         console.log("tm Processing a poll opening...")
-                        console.log(`there are ${7 + Number(decodedOutput.fields[4])} inputs`)
-                        console.log(`there are ${decodedOutput.fields.length} inputs`)
-                        if (Array.isArray(decodedOutput.fields) && decodedFields.length !== 7 + Number(decodedFields[4])) {
+                        console.log(`there are ${7 + Number(decodedFields[4])} inputs`)
+                        console.log(`there are ${decodedFields.length} inputs`)
+                        if (Array.isArray(decodedFields) && decodedFields.length !== 7 + Number(decodedFields[4])) {
                             throw new Error('Open oken did not meet criteria.')
                         }
                         console.log('tm poll added successfully to the database:\n%O', result)
