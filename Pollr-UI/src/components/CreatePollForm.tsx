@@ -115,17 +115,17 @@ const PollForm: React.FC = () => {
           required
         />
       </div>
-
+{/* 
       <div className="form-group">
         <label>Options Type:</label>
         <select
           value={optionsType}
           onChange={(e) => setOptionsType(e.target.value as 'text' | 'image')}
         >
-          <option value="text">Text</option>
-          <option value="image">Image</option>
-        </select>
-      </div>
+          <option value="text">Text</option> */}
+          {/* <option value="image">Image</option> */}
+        {/* </select> */}
+      {/* </div> */}
 
       <div className="form-group">
         <label>Number of Options:</label>
