@@ -1,5 +1,5 @@
 export interface Poll {
-  id: number
+  id: string
   name: string
   desc: string
   date: string
@@ -17,12 +17,4 @@ export type PollQuery = {
 }
 export interface Option {
   value: string
-}
-export interface VoteData{
-  _id: string;
-  txid: string;
-  outputIndex: number;
-  walID: string;
-  pollId: string;
-  index: string;
 }

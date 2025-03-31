@@ -314,7 +314,6 @@ export class PollrLookupService implements LookupService {
                         options: cursor.options,
                         walID: cursor.walID,
                         status: 'close'
-
                     })
                 }
             }
@@ -333,11 +332,9 @@ export class PollrLookupService implements LookupService {
                         options: result.options,
                         walID: result.walID,
                         status: 'close'
-
                     })
                 }
             }
-
             if (status === "open") {
                 //Fetch all open polls or a specific open poll
                 if (isValid(txid)) {

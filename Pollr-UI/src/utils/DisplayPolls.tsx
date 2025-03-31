@@ -1,11 +1,11 @@
-import { useState } from "react";
-import { Button } from "@mui/material";
-import "./DisplayPolls.css";
-import { Poll } from "../types/types";
-import { submitVote } from "./PollrActions";
+import { useState } from "react"
+import { Button } from "@mui/material"
+import "./DisplayPolls.css"
+import { Poll } from "../types/types"
+import { submitVote, closePoll } from "./PollrActions"
 interface PollsListProps {
-  polls: Poll[];
-  onPollClick: (pollId: number) => void;
+  polls: Poll[]
+  onPollClick: (pollId: string) => void
 }
 
 const PollsList: React.FC<PollsListProps> = ({ polls, onPollClick }) => {
@@ -26,7 +26,8 @@ const PollsList: React.FC<PollsListProps> = ({ polls, onPollClick }) => {
             className="poll-row"
             onClick={() => onPollClick(poll.id)}
           >
-            <td>{poll.id}</td>
+            {/* <td>{poll.id}</td> */}
+            <td></td>
             <td>{poll.name}</td>
             <td>{poll.desc}</td>
             <td>{poll.date}</td>
@@ -34,17 +35,17 @@ const PollsList: React.FC<PollsListProps> = ({ polls, onPollClick }) => {
         ))}
       </tbody>
     </table>
-  );
-};
+  )
+}
 
 interface PollsDisplayProps {
-  polls: Poll[];
+  polls: Poll[]
   onPollAction: (
-    pollId: number,
+    pollId: string,
     choice?: string
-  ) => Promise<{ type: "open" | "close" | "completed"; data: string[]; winner?: string }>;
-  actionLabel: string;
-  title: string;
+  ) => Promise<{ type: "open" | "close" | "completed"; data: string[]; winner?: string }>
+  actionLabel: string
+  title: string
 }
 
 export default function PollsDisplay({
@@ -53,36 +54,35 @@ export default function PollsDisplay({
   actionLabel,
   title,
 }: PollsDisplayProps) {
-  const [selectedPoll, setSelectedPoll] = useState<number | null>(null);
-  const [actionData, setActionData] = useState<string[]>([]);
-  const [actionType, setActionType] = useState<"open" | "close" | "completed" | null>(null);
-  const [winner, setWinner] = useState<string | null>(null);
-  const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
+  const [selectedPoll, setSelectedPoll] = useState<string | null>(null)
+  const [actionData, setActionData] = useState<string[]>([])
+  const [actionType, setActionType] = useState<"open" | "close" | "completed" | null>(null)
+  const [winner, setWinner] = useState<string | null>(null)
+  const [selectedChoice, setSelectedChoice] = useState<string | null>(null)
 
-  const handlePollClick = async (pollId: number) => {
-    setSelectedPoll(pollId);
-    setSelectedChoice(null); // Reset any previous selection
-    const result = await onPollAction(pollId);
-    setActionType(result.type);
-    setActionData(result.data);
+  const handlePollClick = async (pollId: string) => {
+    setSelectedPoll(pollId)
+    setSelectedChoice(null) // Reset any previous selection
+    const result = await onPollAction(pollId)
+    setActionType(result.type)
+    setActionData(result.data)
     if (result.type === "completed" && result.winner) {
-      setWinner(result.winner);
+      setWinner(result.winner)
     }
-
-  };
+  }
 
   const handleConfirmVote = async () => {
     if (selectedPoll && selectedChoice) {
       // Extract only the part before the colon
-      const voteOption = selectedChoice.split(":")[0].trim();
-      submitVote({ pollId: selectedPoll.toString(), index: voteOption });
+      const voteOption = selectedChoice.split(":")[0].trim()
+      submitVote({ pollId: selectedPoll.toString(), index: voteOption })
     }
     setTimeout(() => {
       if(selectedPoll)
         handlePollClick(selectedPoll)
-    }, 3000);
+    }, 3000)
     
-  };
+  }
 
   return (
     <div className="poll-container">
@@ -136,9 +136,9 @@ export default function PollsDisplay({
               ) : (
                 <p>No results available.</p>
               )}
-              {/* <Button className="close-button" onClick={() => closePoll({pollId: selectedPoll.toString()})}>
+              <Button className="close-button" onClick={() => closePoll({pollId: selectedPoll.toString()})}>
                 Close Poll
-              </Button> */}
+              </Button>
             </div>
           )}
           <div className="button-group">
@@ -154,5 +154,5 @@ export default function PollsDisplay({
         </div>
       )}
     </div>
-  );
+  )
 }

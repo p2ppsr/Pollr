@@ -8,11 +8,9 @@ const fetchCompletedPolls = async (): Promise<Poll[]> => {
   ]
 }
 
-const fetchPollResults = async (pollId: number): Promise<{ type: "completed" ;data: string[]; winner: string }> => {
-  const pollResults: Record<number, Record<string, number>> = {
-
+const fetchPollResults = async (pollId: string): Promise<{ type: "completed" ;data: string[]; winner: string }> => {
+  const pollResults: Record<string, Record<string, number>> = {
   }
-
   const results = pollResults[pollId] || {}
   const formattedResults = Object.entries(results).map(([choice, votes]) => `${choice}: ${votes} votes`)
 

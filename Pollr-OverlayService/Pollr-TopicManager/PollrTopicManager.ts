@@ -26,14 +26,14 @@ export class PollrTopicManager implements TopicManager {
                     const signature = decodedOutput.fields.pop() as number[]
                     //////////////////////////////////
                     let result
-                    const reader = new Utils.Reader(decodedOutput.fields[0]);
-                    const decodedFields = [];
+                    const reader = new Utils.Reader(decodedOutput.fields[0])
+                    const decodedFields = []
                     while (!reader.eof()) {
-                        const fieldLength = reader.readVarIntNum();
-                        const fieldBytes = reader.read(fieldLength);
-                        decodedFields.push(Utils.toUTF8(fieldBytes));
+                        const fieldLength = reader.readVarIntNum()
+                        const fieldBytes = reader.read(fieldLength)
+                        decodedFields.push(Utils.toUTF8(fieldBytes))
                     }
-                    console.log(decodedFields);
+                    console.log(decodedFields)
                     console.log(`ff: ${JSON.stringify(decodedFields)}`)
                     if (decodedFields[0] === "vote") {
                         // console.log(`checking amount of fields. `)
