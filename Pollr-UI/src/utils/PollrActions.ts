@@ -210,9 +210,8 @@ export async function fetchAllpolls(): Promise<Poll[]> {
     for (let i = 0; i < pollsData.length; i++) {
         const poll = pollsData[i]
         let time = new Date(parseInt(poll.date, 10) * 1000)
-
         pollresutls.push({
-            id: await getAvatar(poll.txid!),
+            id: await getAvatar(poll.walID!),
             name: poll.pollName,
             desc: poll.pollDescription,
             date: time.toLocaleDateString(),
@@ -366,6 +365,7 @@ export async function fetchMypolls() {
 // }
 export async function getAvatar(identityKey: string): Promise<string> {
     let avatarUrl : string = ''
+    console.log(`looking for ${identityKey}`)
     try {
         const identityClient = new IdentityClient()
         const identities = await identityClient.resolveByIdentityKey({
