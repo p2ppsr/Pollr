@@ -26,8 +26,8 @@ const PollsList: React.FC<PollsListProps> = ({ polls, onPollClick }) => {
             className="poll-row"
             onClick={() => onPollClick(poll.id)}
           >
-            {/* <td>{poll.id}</td> */}
-            <td></td>
+            <td>{poll.id}</td>
+            {/* <td></td> */}
             <td>{poll.name}</td>
             <td>{poll.desc}</td>
             <td>{poll.date}</td>

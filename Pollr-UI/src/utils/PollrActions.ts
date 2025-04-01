@@ -2,7 +2,7 @@
 // import { toEnvelopeFromBEEF } from '@babbage/sdk-ts/dist/toEnvelopeFromBEEF'
 // import { toEnvelopeFromBEEF } from '@babbage/sdk-ts'
 // import pushdrop from 'pushdrop'
-import { WalletClient, PushDrop, Utils, Transaction, ProtoWallet, type WalletOutput, DiscoverCertificatesResult, CreateActionInput } from '@bsv/sdk'
+import { WalletClient, PushDrop, Utils, Transaction, ProtoWallet, type WalletOutput, DiscoverCertificatesResult, CreateActionInput , IdentityClient } from '@bsv/sdk'
 // import { getPublicKey, createSignature } from "@babbage/sdk-ts"
 import { Option, PollQuery, OptionResults, Poll } from '../types/types'
 import { LookupQuestion } from '@bsv/overlay'
@@ -181,7 +181,7 @@ export async function closePoll({
     const inputs: CreateActionInput[] = []
     if(parsedResponse.result.voteDetails.length != 0)
     {
-
+        Transaction.fromBEEF(parsedResponse.result.voteDetails)
     }
     console.log(parsedResponse)
 
@@ -212,7 +212,7 @@ export async function fetchAllpolls(): Promise<Poll[]> {
         let time = new Date(parseInt(poll.date, 10) * 1000)
 
         pollresutls.push({
-            id: poll.txid,
+            id: await getAvatar(poll.txid!),
             name: poll.pollName,
             desc: poll.pollDescription,
             date: time.toLocaleDateString(),
@@ -286,7 +286,7 @@ export async function fetchMypolls() {
             const poll = localpolls[i]
             let time = new Date(parseInt(poll[6], 10) * 1000)
             formattedPoll.push({
-                id: poll.pop(),
+                id: getAvatar(poll.pop()!),
                 name: poll[2],
                 desc: poll[3],
                 date: time.toLocaleDateString(),
@@ -364,32 +364,16 @@ export async function fetchMypolls() {
 //         .map(([option, count]) => ({ [option]: count }))
 //     return { listOfRecords, pollStatus }
 // }
-export async function getAvatar(identityKey: string) {
+export async function getAvatar(identityKey: string): Promise<string> {
+    let avatarUrl : string = ''
     try {
-        const WC = new WalletClient()
-        const identityDataArray = await WC.discoverByIdentityKey({
-            identityKey: identityKey
-        }) as DiscoverCertificatesResult // Cast the response
-        //check if we got something and take the first one, since the return is an object map
-        // it to a TrustLookupResult
-        console.log('Identity:', identityDataArray.certificates[0].certifierInfo.iconUrl)
-        if (identityDataArray.totalCertificates > 0) {
-            //   const trustLookupResult: TrustLookupResult = {
-            //     certifier: identityDataArray[0].certifier,
-            //     decryptedFields: identityDataArray[0].decryptedFields,
-            //     subject: identityDataArray[0].subject,
-            //     type: identityDataArray[0].type,
-            //     signature: identityDataArray[0].signature,
-        }
-
-        //   const parsedIdentity = parseIdentity(trustLookupResult)
-        //   setIdentity(parsedIdentity)
-        //       console.log('Parsed Identity:', parsedIdentity)
-        //     } else {
-        //       console.log('No identity data found.')
-        //     }
+        const identityClient = new IdentityClient()
+        const identities = await identityClient.resolveByIdentityKey({
+            identityKey: 'identityKey'
+          })
+        avatarUrl = identities[0].avatarURL
     } catch (error) {
         console.error('Error fetching identity:', error)
     }
-
+    return avatarUrl
 }
