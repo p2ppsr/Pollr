@@ -1,4 +1,6 @@
 export interface Poll {
+  key: string
+  avatarUrl?: string
   id: string
   name: string
   desc: string

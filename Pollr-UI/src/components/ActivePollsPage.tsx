@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react"
 import PollsDisplay from "../utils/DisplayPolls"
 import { Poll,OptionResults } from "../types/types"
-import { fetchAllpolls, fetchopenvotes } from "../utils/PollrActions"
+import { fetchAllOpenPolls, fetchopenvotes } from "../utils/PollrActions"
 
 export const vote = async (pollId: string): Promise<{ type: "open"; data: string[] }> => {
+  console.log(`fetching poll: ${pollId}`)
   let result: Record<string, number>[] = await fetchopenvotes(pollId.toString())
   const stringArray: string[] = result.map(record => {
     // Each record is assumed to have a single key-value pair.
@@ -20,7 +21,7 @@ const ActivePollsPage: React.FC = () => {
   const [polls, setPolls] = useState<Poll[]>([])
   
   useEffect(() => {
-    fetchAllpolls().then((data) => {
+    fetchAllOpenPolls().then((data) => {
       setPolls(data)
     })
   }, [])

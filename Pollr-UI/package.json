@@ -18,7 +18,7 @@
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.2.0",
     "react-toastify": "^10.0.5",
-    "uhrp-react": "^0.2.36",
+    "uhrp-react": "^0.2.38",
     "uhrp-url": "^0.1.10",
     "use-async-effect": "^2.2.7"
   },

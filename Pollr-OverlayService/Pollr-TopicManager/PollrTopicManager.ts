@@ -23,7 +23,7 @@ export class PollrTopicManager implements TopicManager {
                     console.log(JSON.stringify(decodedOutput))
                     console.log("attemping to remove last field")
 
-                    const signature = decodedOutput.fields.pop() as number[]
+                    // const signature = decodedOutput.fields.pop() as number[]
                     //////////////////////////////////
                     let result
                     const reader = new Utils.Reader(decodedOutput.fields[0])
@@ -37,7 +37,6 @@ export class PollrTopicManager implements TopicManager {
                     console.log(`ff: ${JSON.stringify(decodedFields)}`)
                     if (decodedFields[0] === "vote") {
                         // console.log(`checking amount of fields. `)
-
                         if (Array.isArray(decodedFields) && decodedFields.length !== 4) {
                             throw new Error('Token did not meet criteria.')
                         }
@@ -82,7 +81,7 @@ export class PollrTopicManager implements TopicManager {
                         //     data,
                         //     signature,
                         //     counterparty: decodedFields[1].toString(),
-                        //     protocolID: [1, 'identity'],
+                        //     protocolID: [1, 'votesign'],
                         //     keyID: '1'
                         // })
                         // if (!hasValidSignature) throw new Error('Invalid signature!')
@@ -91,7 +90,7 @@ export class PollrTopicManager implements TopicManager {
                         //     console.log('tm vote sign issue\n%O', result)
                         //     throw new Error('Invalid signature!')
                         // }
-                        console.log('tm vote added successfully to the database:\n%O', result)
+                        // console.log('tm vote added successfully to the database:\n%O', result)
 
                     } else if (decodedFields[0] === "open") {
                         console.log("tm Processing a poll opening...")

@@ -242,7 +242,7 @@ export class PollrLookupService implements LookupService {
             let pollvotes: {}[] = []
             let dbpolls: {}[] = []
             if (status == "any1") {
-                if (isValid(voterId)) {
+                if (isValid(txid)) {
                     cursor = await this.opens?.find({ txid: txid }).toArray()
                     for await (const result of cursor!) {
                         pollvotes.push(await this.getVotesforPoll(result.txid))

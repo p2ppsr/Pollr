@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Button } from "@mui/material"
 import "./DisplayPolls.css"
 import { Poll } from "../types/types"
+import { Img } from "uhrp-react"
 import { submitVote, closePoll } from "./PollrActions"
 interface PollsListProps {
   polls: Poll[]
@@ -22,12 +23,17 @@ const PollsList: React.FC<PollsListProps> = ({ polls, onPollClick }) => {
       <tbody>
         {polls.map((poll) => (
           <tr
-            key={poll.id}
+            key={poll.key}
             className="poll-row"
             onClick={() => onPollClick(poll.id)}
           >
-            <td>{poll.id}</td>
-            {/* <td></td> */}
+            <td>
+              <Img
+                src={poll.avatarUrl}
+                alt="Avatar"
+                style={{ width: '100px', height: 'auto', marginRight: '10px' }}
+              />
+            </td>
             <td>{poll.name}</td>
             <td>{poll.desc}</td>
             <td>{poll.date}</td>
@@ -78,10 +84,10 @@ export default function PollsDisplay({
       submitVote({ pollId: selectedPoll.toString(), index: voteOption })
     }
     setTimeout(() => {
-      if(selectedPoll)
+      if (selectedPoll)
         handlePollClick(selectedPoll)
     }, 3000)
-    
+
   }
 
   return (
@@ -136,7 +142,7 @@ export default function PollsDisplay({
               ) : (
                 <p>No results available.</p>
               )}
-              <Button className="close-button" onClick={() => closePoll({pollId: selectedPoll.toString()})}>
+              <Button className="close-button" onClick={() => closePoll({ pollId: selectedPoll.toString() })}>
                 Close Poll
               </Button>
             </div>
