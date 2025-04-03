@@ -57,6 +57,7 @@ export class PollrTopicManager implements TopicManager {
                                 }
                             }
                         }
+                        
                         let voteQuery: PollQuery = {} as PollQuery
                         voteQuery.txid = decodedFields[2].toString()
                         voteQuery.type = "vote"
@@ -100,7 +101,6 @@ export class PollrTopicManager implements TopicManager {
                             throw new Error('Open oken did not meet criteria.')
                         }
                         console.log('tm poll added successfully to the database:\n%O', result)
-
                     } else if (decodedFields[0] === "close") {
                         console.log("tm Processing a close...")
                         if (Array.isArray(decodedFields) && decodedFields.length !== 4) {

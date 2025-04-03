@@ -2,7 +2,7 @@ import { LookupService, LookupQuestion, LookupAnswer, LookupFormula } from '@bsv
 import { Script, PushDrop, Utils } from '@bsv/sdk'
 import { MongoClient, Collection } from 'mongodb'
 // import pushdrop from 'pushdrop'
-import { PollQuery, VoteCounts } from './types.js'
+import { PollQuery, UTXOReference } from './types.js'
 export type PollrStorage = {
     db_string: string
 }
@@ -18,7 +18,7 @@ export class PollrLookupService implements LookupService {
      * Processes the event when a new UTXO is added to a voting topic.
      * This keeps track of open polls and votes.
      */
- 
+
     async connectToDB(): Promise<void> {
         const client = new MongoClient(this.storage.db_string)
 
@@ -49,18 +49,18 @@ export class PollrLookupService implements LookupService {
     ): Promise<void> {
         this.onTopic(topic)
         try {
-             const decodedOutput = await PushDrop.decode( outputScript)
+            const decodedOutput = await PushDrop.decode(outputScript)
             // console.log('Decoded Output:\n%O', decodedOutput)
             //////////////////////////////////////////////
             console.log(`outputScript" ${outputScript.toHex()}, txid: ${txid}`)
             let result
             const reader = new Utils.Reader(decodedOutput.fields[0])
-                                const decodedFields = []
-                                while (!reader.eof()) {
-                                    const fieldLength = reader.readVarIntNum()
-                                    const fieldBytes = reader.read(fieldLength)
-                                    decodedFields.push(Utils.toUTF8(fieldBytes))
-                                }
+            const decodedFields = []
+            while (!reader.eof()) {
+                const fieldLength = reader.readVarIntNum()
+                const fieldBytes = reader.read(fieldLength)
+                decodedFields.push(Utils.toUTF8(fieldBytes))
+            }
             const firstField = decodedFields[0]
             if (firstField === "vote") {
                 console.log("ls Processing a vote...")
@@ -138,42 +138,6 @@ export class PollrLookupService implements LookupService {
             console.error("Error deleting from collections:", error)
         }
     }
-
-    async getVotesforPoll(txid: string): Promise<Record<string, number>> {
-        // console.log(pollId)
-        const votesArray = await this.votes?.find({ pollId: txid }).toArray()
-        const poll = await this.opens?.findOne({ txid: txid })
-
-        if (!poll) {
-            throw new Error(`Poll not found for pollId: ${txid}`)
-        }
-
-        // Use the options array from the poll, e.g. ["Option1", "Option2", "Option3"]
-        const optionsArray: string[] = poll.options
-        // console.log(votesArray)
-        // Initialize voteCounts using option text as keys.
-        const voteCounts: Record<string, number> = {}
-        for (const option of optionsArray) {
-            voteCounts[option] = 0
-        }
-
-        // Loop through each vote and increment the count for the corresponding option.
-        // Here, we assume vote.index is the actual option text.
-        for (const vote of votesArray!) {
-            const optionText = vote.index // Use vote.index directly.
-            // console.log(`vote for: ${optionText}`)
-            if (optionText in voteCounts) {
-                voteCounts[optionText]++
-            } else {
-                // Optional: handle unexpected option text.
-                voteCounts[optionText] = 1
-            }
-        }
-
-        // console.log(`votes for poll ${pollId}: ${JSON.stringify(voteCounts)}`)
-        return voteCounts
-    }
-
     /**
      * Processes when a UTXO is deleted.
      */
@@ -206,190 +170,40 @@ export class PollrLookupService implements LookupService {
         if (question.service !== 'ls_pollr') {
             throw new Error(`Invalid service name "${question.service}" for this lookup service.`)
         }
-        const { type, txid, voterId, status } = question.query as PollQuery
-        // Helper function to validate non-empty strings
-        const isValid = (val?: string) => Boolean(val && val.trim())
+        if (question.query === undefined || question.query === null) {
+            throw new Error('A valid query must be provided!')
+        }
         let cursor: any
-        console.log(`query: ${ type} ${txid} ${voterId} ${status}  }`)
-        if (type === "vote" && isValid(txid) ) {
-            if(status == "all")
+        const { type, txid, voterId, status } = question.query as PollQuery
+        if (type === "vote") {
+            cursor = await this.votes?.find({ voterId: voterId }).toArray()
+        }
+        else if (type == "poll") {
+            if(status == 'closed')
             {
-                console.log(`trying to find: ${txid}`)
-                cursor = await this.votes?.find({pollId: txid }).toArray()
-                console.log(`searching for all votes with this poll id: ${txid}, Got: ${JSON.stringify(cursor)}`)
-                return {
-                    type: "freeform",
-                    result: {
-                        voteDetails: cursor || null
-                    }
-                }
+                cursor = await this.closes?.find({ txid: txid }).toArray()
             }
-            else if( isValid(voterId)){
-                console.log(`trying to find a specific vote : ${txid}, ${voterId}`)
-
-                cursor = await this.votes?.findOne({ walID: voterId, pollId: txid })
-                console.log(`found: ${JSON.stringify(cursor)}`)
-                return {
-                    type: "freeform",
-                    result: {
-                        voteDetails: cursor || null
-                    }
-                }
+            else{
+                cursor = await this.opens?.find({ txid: txid }).toArray()
             }
-           
-        }// unneeded maybe
-        if (type === "poll") {//works but need to change data, cant be sharing this much info from the database
-            let pollvotes: {}[] = []
-            let dbpolls: {}[] = []
-            if (status == "any1") {
-                if (isValid(txid)) {
-                    cursor = await this.opens?.find({ txid: txid }).toArray()
-                    for await (const result of cursor!) {
-                        pollvotes.push(await this.getVotesforPoll(result.txid))
-                        dbpolls.push({
-                            txid: result.txid,
-                            pollName: result.pollName,
-                            // pollId: result.pollId,
-                            pollDescription: result.pollDescription,
-                            numOptions: result.numOptions,
-                            optionsType: result.optionsType,
-                            date: result.date,
-                            options: result.options,
-                            walID: result.walID,
-                            status: 'open'
-                        })
-                    }
-                    cursor = await this.closes?.find({ txid: txid }).toArray()
-                    for await (const result of cursor!) {
-                        pollvotes.push(await this.getVotesforPoll(result.txid))
-                        dbpolls.push({
-                            txid: result.txid,
-                            pollName: result.pollName,
-                            // pollId: result.pollId,
-                            pollDescription: result.pollDescription,
-                            numOptions: result.numOptions,
-                            optionsType: result.optionsType,
-                            date: result.date,
-                            options: result.options,
-                            walID: result.walID,
-                            status: 'close'
-
-                        })
-                    }
-
-                }
-            }
-            if (status === "all") {
-                // console.log("Fetching all polls...")
+        }
+        else if (type === "allvotesfor") {
+            cursor = await this.votes?.find({ pollId: txid }).toArray()
+        }
+        else if (type === "allpolls") {
+            if(status == 'open')
+            {
                 cursor = await this.opens?.find({}).toArray()
-                for await (const result of cursor!) {
-                    // console.log(`getting votes for ${result.pollId}`)
-                    pollvotes.push(await this.getVotesforPoll(result.txid))
-                    dbpolls.push({
-                        txid: result.txid,
-                        pollName: result.pollName,
-                        // pollId: result.pollId,
-                        pollDescription: result.pollDescription,
-                        numOptions: result.numOptions,
-                        optionsType: result.optionsType,
-                        date: result.date,
-                        options: result.options,
-                        walID: result.walID
-                    })
-                }
             }
-            if (status === "closed") {
-                //Fetch all closed polls or a specific closed poll
-                if (isValid(txid)) {
-                    cursor = await this.closes?.findOne({ txid })
-                    // pollvotes.push(cursor.results)
-                    dbpolls.push({
-                        txid: cursor.txid,
-                        pollName: cursor.pollName,
-                        // pollId: cursor.pollId,
-                        pollDescription: cursor.pollDescription,
-                        numOptions: cursor.numOptions,
-                        optionsType: cursor.optionsType,
-                        date: cursor.date,
-                        options: cursor.options,
-                        walID: cursor.walID,
-                        status: 'close'
-                    })
-                }
-            }
-            else {
+            else{
                 cursor = await this.closes?.find({}).toArray()
-                for await (const result of cursor!) {
-                    // pollvotes.push(result.results)
-                    dbpolls.push({
-                        txid: result.txid,
-                        pollName: result.pollName,
-                        // pollId: result.pollId,
-                        pollDescription: result.pollDescription,
-                        numOptions: result.numOptions,
-                        optionsType: result.optionsType,
-                        date: result.date,
-                        options: result.options,
-                        walID: result.walID,
-                        status: 'close'
-                    })
-                }
-            }
-            if (status === "open") {
-                //Fetch all open polls or a specific open poll
-                if (isValid(txid)) {
-                    cursor = await this.opens?.findOne({ txid: txid })
-                    console.log(`looking for votes on poll: ${txid}`)
-                    pollvotes.push(await this.getVotesforPoll(cursor.txid))
-                    // console.log(`votes are: ${JSON.stringify(pollvotes)}`)
-                    dbpolls.push({
-                        txid: cursor.txid,
-                        pollName: cursor.pollName,
-                        // pollId: cursor.pollId,
-                        pollDescription: cursor.pollDescription,
-                        numOptions: cursor.numOptions,
-                        optionsType: cursor.optionsType,
-                        date: cursor.date,
-                        options: cursor.options,
-                        walID: cursor.walID,
-                        status: 'open'
-                    })
-                }
-                else {
-                    cursor = await this.opens?.find({}).toArray()
-                    for await (const result of cursor!) {
-                        pollvotes.push(await this.getVotesforPoll(result.txid))
-                        dbpolls.push({
-                            txid: result.txid,
-                            pollName: result.pollName,
-                            // pollId: result.pollId,
-                            pollDescription: result.pollDescription,
-                            numOptions: result.numOptions,
-                            optionsType: result.optionsType,
-                            date: result.date,
-                            options: result.options,
-                            walID: result.walID,
-                            status: 'open'
-                        })
-                    }
-                }
-
-            }
-            return {
-                type: "freeform",
-                result: {
-                    polls: dbpolls,
-                    votes: pollvotes
-                }
-            }
-
-        }
-        return {
-            type: "freeform",
-            result: {
-                error: "Invalid query"
             }
         }
+        const response: LookupFormula = []
+        for await (const result of cursor!) {
+            response.push({ txid: result.txid as string, outputIndex: result.outputIndex })
+        }
+        return response
     }
 
     /**

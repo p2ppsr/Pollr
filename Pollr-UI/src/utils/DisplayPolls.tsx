@@ -23,7 +23,7 @@ const PollsList: React.FC<PollsListProps> = ({ polls, onPollClick }) => {
       <tbody>
         {polls.map((poll) => (
           <tr
-            key={poll.key}
+            key={poll.date}
             className="poll-row"
             onClick={() => onPollClick(poll.id)}
           >
@@ -36,7 +36,7 @@ const PollsList: React.FC<PollsListProps> = ({ polls, onPollClick }) => {
             </td>
             <td>{poll.name}</td>
             <td>{poll.desc}</td>
-            <td>{poll.date}</td>
+            <td>{new Date(Number(poll.date) * 1000).toLocaleDateString()}</td>
           </tr>
         ))}
       </tbody>

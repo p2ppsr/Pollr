@@ -12,7 +12,7 @@ export interface OptionResults {
   numVotes: number
 }
 export type PollQuery = {
-  type: "vote" | "poll"
+  type: "vote" | "poll" | "allvotesfor" | "allpolls"
   txid?: string
   voterId?: string
   status?: "open" | "closed" | "all" | "any1"
