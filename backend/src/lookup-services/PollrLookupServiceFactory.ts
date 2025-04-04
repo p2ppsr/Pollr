@@ -29,6 +29,9 @@ class PollrLookupService implements LookupService {
         outputScript: Script,
         topic: string
     ): Promise<void> {
+        if (topic !== 'tm_pollr') {
+            return
+        }
         this.onTopic(topic)
         try {
             const decodedOutput = await PushDrop.decode(outputScript)
@@ -97,7 +100,9 @@ class PollrLookupService implements LookupService {
         outputIndex: number,
         topic: string):
         Promise<void> {
-
+            if (topic !== 'tm_pollr') {
+                return
+            }
         this.onTopic(topic)
 
         try {
@@ -120,6 +125,9 @@ class PollrLookupService implements LookupService {
         outputIndex: number,
         topic: string):
         Promise<void> {
+            if (topic !== 'tm_pollr') {
+                return
+            }
         console.log(`Received spend notification for TXID: ${txid}, Output Index: ${outputIndex}.`)
 
         this.onTopic(topic)

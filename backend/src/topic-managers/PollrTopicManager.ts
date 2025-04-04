@@ -103,7 +103,7 @@ export default class PollrTopicManager implements TopicManager {
      * @returns A promise that resolves to a string containing the documentation
      */
     async getDocumentation(): Promise<string> {
-        throw new Error('Method not implemented.')
+        return '# Pollr Topic Manager'
     }
     /**
      * Get metadata about the topic manager
@@ -117,6 +117,9 @@ export default class PollrTopicManager implements TopicManager {
         version?: string
         informationURL?: string
     }> {
-        throw new Error('Method not implemented.')
+        return {
+            name: 'Pollr Topic Manager',
+            shortDescription: 'Manages pollr outputs'
+        }
     }
 }

@@ -259,9 +259,9 @@ export async function closePoll({
             spends
           })
           const parsedCompletedTx = Transaction.fromAtomicBEEF(completedTx!)
-    const broadcaster = new TopicBroadcaster(['tm_pollr'], {
-        networkPreset: location.hostname === 'localhost' ? 'local' : network
-    })
+        const broadcaster = new TopicBroadcaster(['tm_pollr'], {
+            networkPreset: location.hostname === 'localhost' ? 'local' : network
+        })
     await broadcaster.broadcast(parsedCompletedTx)
     return 'pollresutls'
 }
