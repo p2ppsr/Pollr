@@ -1,15 +1,6 @@
-// import { createAction, EnvelopeEvidenceApi, toBEEFfromEnvelope, getTransactionOutputs } from '@babbage/sdk-ts'
-// import { toEnvelopeFromBEEF } from '@babbage/sdk-ts/dist/toEnvelopeFromBEEF'
-// import { toEnvelopeFromBEEF } from '@babbage/sdk-ts'
-// import pushdrop from 'pushdrop'
-import { WalletClient, PushDrop, Utils, Transaction, ProtoWallet, type WalletOutput, TransactionInput, CreateActionInput, IdentityClient, Beef } from '@bsv/sdk'
-// import { getPublicKey, createSignature } from "@babbage/sdk-ts"
-import { Option, PollQuery, OptionResults, Poll } from '../types/types'
+import { WalletClient, PushDrop, Utils, Transaction, type WalletOutput, CreateActionInput, IdentityClient, Beef, LookupResolver, TopicBroadcaster } from '@bsv/sdk'
+import { Option, PollQuery, Poll } from '../types/types'
 import { LookupQuestion } from '@bsv/overlay'
-import { FileDownloadOffRounded, LocalPoliceOutlined, VolumeMuteRounded } from '@mui/icons-material'
-import { parse } from 'path'
-import { avatarGroupClasses } from '@mui/material'
-const pollrHost = 'http://localhost:8080'
 export async function submitCreatePolls({
     pollName,
     pollDescription,
@@ -73,16 +64,15 @@ export async function submitCreatePolls({
     const beef = tx.toBEEF()
 
     console.log(`sending ${beef}`)
-    const response = await fetch(`${pollrHost}/submit`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/octet-stream',
-            'X-Topics': JSON.stringify(['tm_pollr'])
-        },
-        body: new Uint8Array(beef)
+    const network = (await walletClient.getNetwork()).network
+    const broadcaster = new TopicBroadcaster(['tm_pollr'], {
+        networkPreset: location.hostname === 'localhost' ? 'local' : network
     })
-    const parsedResponse = await response.json()
-    console.log(`response: ${parsedResponse}`)
+    const broadcasterResult = await broadcaster.broadcast(tx)
+      console.log('broadcasterResult:', broadcasterResult)
+      if (broadcasterResult.status === 'error') {
+        throw new Error('Transaction failed to broadcast')
+      }
     return "parsedResponse"
 }
 export async function submitVote({
@@ -136,21 +126,18 @@ export async function submitVote({
     if (!tx) {
         throw new Error("Transaction creation failed: tx is undefined")
     }
-    const beef = Transaction.fromAtomicBEEF(newPollToken.tx!).toBEEF()
-
-    const response = await fetch(`${pollrHost}/submit`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/octet-stream',
-            'X-Topics': JSON.stringify(['tm_pollr'])
-        },
-        body: new Uint8Array(beef)
+    const network = (await walletClient.getNetwork()).network
+    const broadcaster = new TopicBroadcaster(['tm_pollr'], {
+        networkPreset: location.hostname === 'localhost' ? 'local' : network
     })
-    const parsedResponse = await response.json()
-    console.log(`response: ${parsedResponse}`)
-    
+    const broadcasterResult = await broadcaster.broadcast(tx)
+    console.log('broadcasterResult:', broadcasterResult)
+    if (broadcasterResult.status === 'error') {
+        throw new Error('Transaction failed to broadcast')
+    }
     return "parsedResponse"
 }
+
 export async function closePoll({
     pollId }: {
         pollId: string,
@@ -162,20 +149,19 @@ export async function closePoll({
     let question = {} as LookupQuestion
     question.query = query
     question.service = 'ls_pollr'
-    const response = await fetch(`${pollrHost}/lookup`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/octet-stream',
-            'X-Topics': JSON.stringify(['ls_pollr'])
-        },
-        body: JSON.stringify(question)
-    })
-    const votetokens = await response.json()
-    let votes: string[][] = []
-    for (const output of votetokens.outputs) {
 
+    const network = (await walletClient.getNetwork()).network
+    const resolver = new LookupResolver({ networkPreset: location.hostname === 'localhost' ? 'local' : network})
+    const lookupResult = await resolver.query(question)
+
+    if (lookupResult.type !== 'output-list') {
+        throw new Error('Lookup result type must be output-list')
+    }
+
+    let votes: string[][] = []
+    for (const output of lookupResult.outputs) {
         const parsedTransaction = Transaction.fromBEEF(output.beef)
-        const decoded = await PushDrop.decode(parsedTransaction.outputs[0].lockingScript)
+        const decoded = await PushDrop.decode(parsedTransaction.outputs[output.outputIndex].lockingScript)
 
         const reader = new Utils.Reader(decoded.fields[0])
         const decodedFields = []
@@ -224,23 +210,26 @@ export async function closePoll({
         'self'
         )
     let opentoken = await getPoll(pollId)
+    const beefer = new Beef()
     const inputs: CreateActionInput[] = []
         inputs.push({
             outpoint: opentoken.id('hex') + '.0',
             unlockingScriptLength: 74,
             inputDescription: 'voteToken'
           })
-        for (const vote of votetokens.outputs) {
+        for (const vote of lookupResult.outputs) {
             let beef = Transaction.fromBEEF(vote.beef)
           inputs.push({
             outpoint: beef.id('hex') + ".0",
             unlockingScriptLength: 74,
             inputDescription: 'voteToken'
           })
+            beefer.mergeBeef(vote.beef)
         }
+
      const { signableTransaction } = await walletClient.createAction({
           description: `Closing token`,
-        //   inputBEEF: tx.toBEEF(),
+          inputBEEF: beefer.toBinary(),
           inputs,
           outputs: [{
             lockingScript: lockingScript.toHex(),
@@ -255,17 +244,11 @@ export async function closePoll({
         if (signableTransaction === undefined) {
             throw new Error('Failed to create signable transaction')
           }
-          const beef = Transaction.fromAtomicBEEF(signableTransaction.tx!).toBEEF()
-          const closeResponse = await fetch(`${pollrHost}/submit`, {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/octet-stream',
-                  'X-Topics': JSON.stringify(['tm_pollr'])
-              },
-              body: new Uint8Array(beef)
-          })
-          const parsedResponse = await response.json()
-          console.log(`response: ${parsedResponse}`)
+          const tx = Transaction.fromAtomicBEEF(signableTransaction.tx!)
+    const broadcaster = new TopicBroadcaster(['tm_pollr'], {
+        networkPreset: location.hostname === 'localhost' ? 'local' : network
+    })
+    await broadcaster.broadcast(tx)
     return 'pollresutls'
 }
 export async function fetchAllOpenPolls(): Promise<Poll[]> {
@@ -275,19 +258,18 @@ export async function fetchAllOpenPolls(): Promise<Poll[]> {
     let question = {} as LookupQuestion
     question.query = query
     question.service = 'ls_pollr'
-    const response = await fetch(`${pollrHost}/lookup`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/octet-stream',
-            'X-Topics': JSON.stringify(['ls_pollr'])
-        },
-        body: JSON.stringify(question)
-    })
-    const parsedResponse = await response.json()
     const walletClient = new WalletClient()
+    const { network } = await walletClient.getNetwork()
+    const resolver = new LookupResolver({ networkPreset: location.hostname === 'localhost' ? 'local' : network})
+    const lookupResult = await resolver.query(question)
+
+    if (lookupResult.type !== 'output-list') {
+        throw new Error('Must be of type output list')
+    }
+
     const PD = new PushDrop(walletClient)
     let pollsData: string[][] = []
-    for (const output of parsedResponse.outputs) {
+    for (const output of lookupResult.outputs) {
 
         const parsedTransaction = Transaction.fromBEEF(output.beef)
         const decoded = await PushDrop.decode(parsedTransaction.outputs[0].lockingScript)
@@ -315,6 +297,7 @@ export async function fetchAllOpenPolls(): Promise<Poll[]> {
     }));
     return polls
 }
+
 export async function fetchOpenVotes(pollId: string): Promise<Record<string, number>[]> {
     let query = {} as PollQuery
     query.type = 'allvotesfor'
@@ -324,18 +307,17 @@ export async function fetchOpenVotes(pollId: string): Promise<Record<string, num
     let question = {} as LookupQuestion
     question.query = query
     question.service = 'ls_pollr'
-    const response = await fetch(`${pollrHost}/lookup`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/octet-stream',
-            'X-Topics': JSON.stringify(['ls_pollr'])
-        },
-        body: JSON.stringify(question)
-    })
+    const walletClient = new WalletClient()
 
-    const parsedResponse = await response.json()
+    const network = (await walletClient.getNetwork()).network
+    const resolver = new LookupResolver({ networkPreset: location.hostname === 'localhost' ? 'local' : network})
+    const lookupResult = await resolver.query(question)
+
+    if (lookupResult.type !== 'output-list') {
+        throw new Error('Lookup result type must be output-list')
+    }
     let votes: string[][] = []
-    for (const output of parsedResponse.outputs) {
+    for (const output of lookupResult.outputs) {
 
         const parsedTransaction = Transaction.fromBEEF(output.beef)
         const decoded = await PushDrop.decode(parsedTransaction.outputs[0].lockingScript)
@@ -367,6 +349,7 @@ export async function fetchOpenVotes(pollId: string): Promise<Record<string, num
 
     return voteCountsArray
 }
+
 export async function fetchMypolls() {
     const walletClient = new WalletClient()
     let formattedPoll: {}[] = []
@@ -428,19 +411,19 @@ export async function getClosedPolls() {
     let question = {} as LookupQuestion
     question.query = query
     question.service = 'ls_pollr'
-    const response = await fetch(`${pollrHost}/lookup`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/octet-stream',
-            'X-Topics': JSON.stringify(['ls_pollr'])
-        },
-        body: JSON.stringify(question)
-    })
-    const parsedResponse = await response.json()
     const walletClient = new WalletClient()
+
+    const network = (await walletClient.getNetwork()).network
+    const resolver = new LookupResolver({ networkPreset: location.hostname === 'localhost' ? 'local' : network})
+    const lookupResult = await resolver.query(question)
+
+    if (lookupResult.type !== 'output-list') {
+        throw new Error('Lookup result type must be output-list')
+    }
+
     const PD = new PushDrop(walletClient)
     let pollsData: string[][] = []
-    for (const output of parsedResponse.outputs) {
+    for (const output of lookupResult.outputs) {
 
         const parsedTransaction = Transaction.fromBEEF(output.beef)
         const decoded = await PushDrop.decode(parsedTransaction.outputs[0].lockingScript)
@@ -455,7 +438,6 @@ export async function getClosedPolls() {
         decodedFields.push(parsedTransaction.id('hex'))
         console.log(JSON.stringify(decodedFields))
         pollsData.push(decodedFields)
-
     }
     const polls: Poll[] = pollsData.map((row: string[]) => ({
         key: row[1],
@@ -474,24 +456,17 @@ export async function getPollOptions(pollId: string): Promise<string[]> {
     query.type = 'poll'
     query.status = 'open'
     query.txid = pollId
-    const walID = await walletClient.getPublicKey({
-        identityKey: true
-    })
     let question = {} as LookupQuestion
     question.query = query
     question.service = 'ls_pollr'
-    const response = await fetch(`${pollrHost}/lookup`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/octet-stream',
-            'X-Topics': JSON.stringify(['ls_pollr'])
-        },
-        body: JSON.stringify(question)
-    })
-
-    const parsedResponse = await response.json()
-    const parsedTransaction = Transaction.fromBEEF(parsedResponse.outputs[0].beef)
-    const decoded = await PushDrop.decode(parsedTransaction.outputs[0].lockingScript)
+    const network = (await walletClient.getNetwork()).network
+    const resolver = new LookupResolver({ networkPreset: location.hostname === 'localhost' ? 'local' : network})
+    const lookupResult = await resolver.query(question)
+    if (lookupResult.type !== 'output-list') {
+        throw new Error('Lookup result type must be output-list')
+    }
+    const parsedTransaction = Transaction.fromBEEF(lookupResult.outputs[0].beef)
+    const decoded = PushDrop.decode(parsedTransaction.outputs[0].lockingScript)
 
     const reader = new Utils.Reader(decoded.fields[0])
     const decodedFields = []
@@ -510,24 +485,17 @@ export async function getPoll(pollId: string): Promise<Transaction> {
     query.type = 'poll'
     query.status = 'open'
     query.txid = pollId
-    const walID = await walletClient.getPublicKey({
-        identityKey: true
-    })
     let question = {} as LookupQuestion
     question.query = query
     question.service = 'ls_pollr'
-    const response = await fetch(`${pollrHost}/lookup`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/octet-stream',
-            'X-Topics': JSON.stringify(['ls_pollr'])
-        },
-        body: JSON.stringify(question)
-    })
+    const network = (await walletClient.getNetwork()).network
+    const resolver = new LookupResolver({ networkPreset: location.hostname === 'localhost' ? 'local' : network})
+    const lookupResult = await resolver.query(question)
+    if (lookupResult.type !== 'output-list') {
+        throw new Error('Lookup result type must be output-list')
+    }
 
-    const parsedResponse = await response.json()
-
-    return Transaction.fromBEEF(parsedResponse.outputs[0].beef)
+    return Transaction.fromBEEF(lookupResult.outputs[0].beef)
 }
 export async function getAvatar(identityKey: string): Promise<string> {
     let avatarUrl: string = ''

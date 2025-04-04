@@ -1,12 +1,8 @@
-import { AdmittanceInstructions, TopicManager, LookupAnswer, LookupFormula } from '@bsv/overlay'
-import { LookupQuestion, PublicKey, Transaction, Signature, PushDrop, ProtoWallet, Utils } from '@bsv/sdk'
-// import { verifySignature } from "@babbage/sdk-ts"
-import { PollrLookupService } from '../Pollr-LookupService/PollrLookupService.js'
-import { PollQuery } from '../Pollr-LookupService/types.js'
-import { lookup } from 'dns'
-// import pushdrop from 'pushdrop'
-export class PollrTopicManager implements TopicManager {
-    constructor(private lookupService: PollrLookupService) { }
+import { AdmittanceInstructions, TopicManager, LookupFormula } from '@bsv/overlay'
+import { LookupQuestion, Transaction, PushDrop, Utils, LookupResolver } from '@bsv/sdk'
+import { PollQuery } from '../types.js'
+
+export default class PollrTopicManager implements TopicManager {
     /**
      * Identify if the outputs are admissible depending on the particular protocol requirements
      * @param beef - The transaction data in BEEF format
@@ -40,7 +36,10 @@ export class PollrTopicManager implements TopicManager {
                         pollQuestion.query = pollQuery
                         pollQuestion.service = 'ls_pollr'
                         //check valid poll
-                        const pollLSResult = await this.lookupService.lookup(pollQuestion)
+                        const resolver = new LookupResolver({
+                            networkPreset: 'local'
+                        })
+                        const pollLSResult = await resolver.query(pollQuestion)
                         if ("type" in pollLSResult) {
                             if (pollLSResult.type === "freeform") {
                                 let poll = pollLSResult.result as { polls: any[], pollvotes: any[] }
@@ -58,9 +57,12 @@ export class PollrTopicManager implements TopicManager {
                         question.service = 'ls_pollr'
                         //check dups
                         console.log(`checking dup ${JSON.stringify(voteQuery)}`)
-                        const lookupResult = await this.lookupService.lookup(question) as LookupFormula
+                        const lookupResult = await resolver.query(question)
                         console.log(`lookupResult: ${lookupResult}`)
-                        if (!lookupResult || lookupResult.length > 0) {
+                        if (lookupResult.type !== 'output-list') {
+                            throw new Error('Bad lookup result')
+                        }
+                        if (!lookupResult || lookupResult.outputs.length > 0) {
                             throw new Error("dup vote.")
                         }
                     } else if (decodedFields[0] === "open") {
@@ -117,5 +119,4 @@ export class PollrTopicManager implements TopicManager {
     }> {
         throw new Error('Method not implemented.')
     }
-
 }

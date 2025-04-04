@@ -2,15 +2,14 @@ import { useState } from "react"
 import { Button } from "@mui/material"
 import "./DisplayPolls.css"
 import { Poll } from "../types/types"
-import { Img } from "uhrp-react"
+import { Img } from "@bsv/uhrp-react"
 import { submitVote, closePoll } from "./PollrActions"
+import { styled } from '@mui/system'
+import {LinearProgress} from '@mui/material'
 interface PollsListProps {
   polls: Poll[]
   onPollClick: (pollId: string) => void
 }
-import { styled } from '@mui/system'
-
-import {LinearProgress} from '@mui/material'
 
 const LoadingBar = styled(LinearProgress)({
   margin: '1em'
@@ -35,7 +34,7 @@ const PollsList: React.FC<PollsListProps> = ({ polls, onPollClick }) => {
           >
             <td>
               <Img
-                src={poll.avatarUrl}
+                src={poll.avatarUrl || ''}
                 alt="Avatar"
                 style={{ width: '100px', height: 'auto', marginRight: '10px' }}
               />

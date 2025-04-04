@@ -1,1 +1,0 @@
-declare module 'authrite-js'

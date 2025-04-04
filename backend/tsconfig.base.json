@@ -10,7 +10,6 @@
     "moduleDetection": "force",
     "rootDir": "./",
     "baseUrl": "./",
-    "outDir": "./dist",
     "strict": true,
     "isolatedModules": true,
     "strictNullChecks": true,
@@ -19,18 +18,15 @@
     "forceConsistentCasingInFileNames": true,
     "incremental": true,
     "sourceMap": true,
-    "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "resolveJsonModule": true,
     "esModuleInterop": true
   },
   "files": [
-    "src/index.ts"
+    "mod.ts"
   ],
   "include": [
-    "src",
-    "knexfile.ts",
-    "utils/types.d.ts"
+    "src"
   ],
   "exclude": [
     "dist",

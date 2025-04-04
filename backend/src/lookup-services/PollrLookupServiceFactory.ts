@@ -1,39 +1,18 @@
 import { LookupService, LookupQuestion, LookupAnswer, LookupFormula } from '@bsv/overlay'
 import { Script, PushDrop, Utils } from '@bsv/sdk'
-import { MongoClient, Collection } from 'mongodb'
-// import pushdrop from 'pushdrop'
-import { PollQuery, UTXOReference } from './types.js'
-export type PollrStorage = {
-    db_string: string
-}
+import { MongoClient, Collection, Db } from 'mongodb'
+import { PollQuery } from '../types.js'
 
-export class PollrLookupService implements LookupService {
-    constructor(private storage: PollrStorage) { }
+class PollrLookupService implements LookupService {
+    constructor(private db: Db) {
+        this.votes = this.db.collection('pollrvote')
+        this.closes = this.db.collection('pollrclose')
+        this.opens = this.db.collection('pollropen')
+    }
     private votes: Collection | undefined
     private closes: Collection | undefined
     private opens: Collection | undefined
-    private nextid: Collection | undefined
-    private connection: MongoClient | undefined
-    /**
-     * Processes the event when a new UTXO is added to a voting topic.
-     * This keeps track of open polls and votes.
-     */
 
-    async connectToDB(): Promise<void> {
-        const client = new MongoClient(this.storage.db_string)
-
-        try {
-            this.connection = await client.connect()
-            console.log('Database connection established successfully.')
-            this.votes = this.connection.db('pollrservice').collection('pollrvote')
-            this.closes = this.connection.db('pollrservice').collection('pollrclose')
-            this.opens = this.connection.db('pollrservice').collection('pollropen')
-            this.nextid = this.connection.db('pollrservice').collection('Id')
-        } catch (error) {
-            console.error('Failed to connect to the database:\n%O', error)
-            throw new Error('Database connection error.')
-        }
-    }
     /**
      * Checks if requests are on the topic of tm_pollr
      * This keeps track of open polls and votes.
@@ -122,10 +101,10 @@ export class PollrLookupService implements LookupService {
         this.onTopic(topic)
 
         try {
-            const collections = await this.connection?.db('pollrservice').listCollections().toArray() || []
+            const collections = await this.db.listCollections().toArray() || []
 
             for (const collection of collections) {
-                await this.connection?.db('pollrservice').collection(collection.name).deleteMany({ txid, outputIndex })
+                await this.db.collection(collection.name).deleteMany({ txid, outputIndex })
                 console.log(`Deleted documents from collection: ${collection.name}`)
             }
         } catch (error) {
@@ -146,9 +125,9 @@ export class PollrLookupService implements LookupService {
         this.onTopic(topic)
 
         try {
-            const collections = await this.connection?.db('pollrservice').listCollections().toArray() || []
+            const collections = await this.db.listCollections().toArray() || []
             for (const collection of collections) {
-                await this.connection?.db('pollrservice').collection(collection.name).deleteMany({ txid, outputIndex })
+                await this.db.collection(collection.name).deleteMany({ txid, outputIndex })
                 console.log(`Deleted documents from collection: ${collection.name}`)
             }
         } catch (error) {
@@ -225,4 +204,8 @@ export class PollrLookupService implements LookupService {
             informationURL: "/docs/lookup"
         }
     }
+}
+
+export default (db: Db) => {
+    return new PollrLookupService(db)
 }
