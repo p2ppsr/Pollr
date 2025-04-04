@@ -13,14 +13,12 @@ export async function submitCreatePolls({
     }):
     Promise<string> {
     const walletClient = new WalletClient()
-    const walID = await walletClient.getPublicKey({
-        identityKey: true
-    })
+    const pollCreator = await walletClient.getPublicKey({ identityKey: true });
 
     const PD = new PushDrop(walletClient)
     const fields = [
         Buffer.from("open", "utf8"),
-        Buffer.from('' + walID.publicKey, "utf8"),           // Ensure walID is a string
+        Buffer.from('' + pollCreator.publicKey, "utf8"),           // Ensure walID is a string
         Buffer.from('' + pollName, "utf8"),
         Buffer.from('' + pollDescription, "utf8"),
         Buffer.from('' + options.length.toString(), "utf8"),
@@ -83,14 +81,13 @@ index }: {
     }):
     Promise<string> {
     const walletClient = new WalletClient()
-    const walID = await walletClient.getPublicKey({
-        identityKey: true
-    })
+    const pollCreator = await walletClient.getPublicKey({ identityKey: true });
+
 
     const PD = new PushDrop(walletClient)
     const fields = [
         Buffer.from("vote", "utf8"),
-        Buffer.from('' + walID.publicKey, "utf8"),
+        Buffer.from('' + pollCreator.publicKey, "utf8"),
         Buffer.from('' + poll.id, "utf8"),
         Buffer.from('' + index, "utf8"),
     ]
