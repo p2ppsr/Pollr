@@ -34,7 +34,7 @@ const fetchPollResults = async (pollId: string): Promise<{ type: "completed" ;da
 //     type: "open",
 //     data:stringArray,
 //   }
-// }
+// }//waiting till I can closed polls to test this
 const CompletedPollsPage: React.FC = () => {
   const [polls, setPolls] = useState<Poll[]>([])
   const [loading, setLoading] = useState(true)

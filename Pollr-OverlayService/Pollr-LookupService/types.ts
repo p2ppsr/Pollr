@@ -12,7 +12,7 @@ export interface Pollrvotes {
     type: "vote" | "poll" | "allvotesfor" | "allpolls"
     txid?: string
     voterId?: string
-    status?: "open" | "closed" | "all" | "any1"
+    status?: "open" | "closed"
   }
 export type PollResponse = {
   pollId: string

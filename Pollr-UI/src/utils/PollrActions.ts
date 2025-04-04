@@ -132,19 +132,6 @@ export async function submitVote({
         },
         description: `Voting choice: ${index}`
     })
-    // const anyoneWallet = new ProtoWallet('anyone')
-    // await anyoneWallet.createSignature({
-    //     data: ,
-    //     counterparty: "anyone",
-    //     protocolID: [1, 'identity'],
-    //     keyID: '1'
-    // })
-    //  await walletClient.createSignature({
-    //     data: flattenedArray,
-    //     counterparty: "self",
-    //     protocolID: [1, 'votesign'],
-    //     keyID: '1'
-    // })
     const tx = Transaction.fromAtomicBEEF(newPollToken.tx!)
     if (!tx) {
         throw new Error("Transaction creation failed: tx is undefined")
@@ -205,7 +192,6 @@ export async function closePoll({
     voteOptions.forEach(option => {
         voteCounts[option] = 0
     })
-
     // Count the votes only for allowed options.
     votes.forEach(vote => {
         const option = vote[3]
@@ -238,19 +224,6 @@ export async function closePoll({
         'self'
         )
     let opentoken = await getPoll(pollId)
-    // let tx = new Transaction();
-    // tx.addInput({
-    //     sourceTransaction: opentoken,
-    //     sourceOutputIndex: 0,
-    // })
-    // for (const vote of votetokens.outputs) {
-    //     let beef = Transaction.fromBEEF(vote.beef)
-    //     tx.addInput({
-    //         sourceTransaction: beef,
-    //         sourceOutputIndex: 0,
-    //     })
-    // }
-    // Transaction.fromBEEF(tx.toBEEF())
     const inputs: CreateActionInput[] = []
         inputs.push({
             outpoint: opentoken.id('hex') + '.0',
@@ -282,7 +255,6 @@ export async function closePoll({
         if (signableTransaction === undefined) {
             throw new Error('Failed to create signable transaction')
           }
-        //   const partialTx = Transaction.fromBEEF(signableTransaction.tx)
           const beef = Transaction.fromAtomicBEEF(signableTransaction.tx!).toBEEF()
           const closeResponse = await fetch(`${pollrHost}/submit`, {
               method: 'POST',
@@ -566,7 +538,6 @@ export async function getAvatar(identityKey: string): Promise<string> {
             identityKey: identityKey
         })
         if (identities.length > 0) {
-            // console.log(`${JSON.stringify(identities)}`)
             avatarUrl = identities[0]?.avatarURL
         }
     } catch (error) {

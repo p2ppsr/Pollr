@@ -20,9 +20,6 @@ export class PollrTopicManager implements TopicManager {
             for (const [i, output] of parsedTransaction.outputs.entries()) {
                 try {
                     const decodedOutput = await PushDrop.decode(output.lockingScript)
-
-                    // const signature = decodedOutput.fields.pop() as number[]
-                    //////////////////////////////////
                     let result
                     const reader = new Utils.Reader(decodedOutput.fields[0])
                     const decodedFields = []
@@ -52,7 +49,6 @@ export class PollrTopicManager implements TopicManager {
                                 }
                             }
                         }
-                        
                         let voteQuery: PollQuery = {} as PollQuery
                         voteQuery.txid = decodedFields[2].toString()
                         voteQuery.type = "vote"
@@ -67,24 +63,6 @@ export class PollrTopicManager implements TopicManager {
                         if (!lookupResult || lookupResult.length > 0) {
                             throw new Error("dup vote.")
                         }
-                        // //check valid signiture
-                        // const data = decodedOutput.fields.reduce((a, e) => [...a, ...e], [])
-                        // const anyoneWallet = new ProtoWallet('anyone')
-                        // const { valid: hasValidSignature } = await anyoneWallet.verifySignature({
-                        //     data,
-                        //     signature,
-                        //     counterparty: decodedFields[1].toString(),
-                        //     protocolID: [1, 'votesign'],
-                        //     keyID: '1'
-                        // })
-                        // if (!hasValidSignature) throw new Error('Invalid signature!')
-
-                        // if (!hasValidSignature) {
-                        //     console.log('tm vote sign issue\n%O', result)
-                        //     throw new Error('Invalid signature!')
-                        // }
-                        // console.log('tm vote added successfully to the database:\n%O', result)
-
                     } else if (decodedFields[0] === "open") {
                         console.log("tm Processing a poll opening...")
                         console.log(`there are ${7 + Number(decodedFields[4])} inputs`)
@@ -110,16 +88,14 @@ export class PollrTopicManager implements TopicManager {
             }
 
         } catch (err) {
-            // console.error('Error identifying admissible outputs:', err)
+            console.error('Error identifying admissible outputs:', err)
         }
-        console.log("TM LEAVING!")//debug purpose /will remove after tests
+        // console.log("TM LEAVING!")//debug purpose /will remove after tests
         return {
             outputsToAdmit,
             coinsToRetain: []
         }
     }
-
-
     /**
      * Get the documentation associated with this topic manager
      * @returns A promise that resolves to a string containing the documentation
@@ -127,7 +103,6 @@ export class PollrTopicManager implements TopicManager {
     async getDocumentation(): Promise<string> {
         throw new Error('Method not implemented.')
     }
-
     /**
      * Get metadata about the topic manager
      * @returns A promise that resolves to an object containing metadata

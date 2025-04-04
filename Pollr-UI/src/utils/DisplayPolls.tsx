@@ -94,7 +94,7 @@ export default function PollsDisplay({
     // setTimeout(() => {
     //   if (selectedPoll)
     //     handlePollClick(selectedPoll)
-    // }, 5000)
+    // }, 5000)//submit is stuck / clearning manually since submit does not return
   }
 
   // If data is being fetched, render only the loading bar

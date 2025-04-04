@@ -21,7 +21,6 @@ export const vote = async (pollId: string): Promise<{ type: "open"; data: string
     data:stringArray,
   }
 }
-
 const ActivePollsPage: React.FC = () => {
   const [polls, setPolls] = useState<Poll[]>([])
   const [loading, setLoading] = useState(true)

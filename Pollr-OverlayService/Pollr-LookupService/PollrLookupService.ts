@@ -34,7 +34,10 @@ export class PollrLookupService implements LookupService {
             throw new Error('Database connection error.')
         }
     }
-
+    /**
+     * Checks if requests are on the topic of tm_pollr
+     * This keeps track of open polls and votes.
+     */
     async onTopic(topic: string) {
         if (topic !== 'tm_pollr') {
             throw new Error(`Invalid topic "${topic}" for this service.`)
@@ -50,8 +53,6 @@ export class PollrLookupService implements LookupService {
         this.onTopic(topic)
         try {
             const decodedOutput = await PushDrop.decode(outputScript)
-            // console.log('Decoded Output:\n%O', decodedOutput)
-            //////////////////////////////////////////////
             console.log(`outputScript" ${outputScript.toHex()}, txid: ${txid}`)
             let result
             const reader = new Utils.Reader(decodedOutput.fields[0])
@@ -74,30 +75,24 @@ export class PollrLookupService implements LookupService {
                 console.log('ls vote added successfully to the database:\n%O', result)
 
             } else if (firstField === "open") {
-                // console.log("ls Processing a poll opening...")
-                // const id = await this.getNextId()
                 const result = await this.opens?.insertOne({
                     txid,
                     outputIndex,
                     walID: decodedFields[1].toString(),
                     pollName: decodedFields[2].toString(),
-                    // pollId: id.toString(),
                     pollDescription: decodedFields[3].toString(),
                     numOptions: parseInt(decodedFields[4].toString(), 10),  // Ensure it's a number
                     optionsType: decodedFields[5].toString(),
                     date: decodedFields[6].toString(),
                     options: decodedFields.slice(7, 7 + parseInt(decodedFields[4].toString(), 10)).map((buffer: any) => buffer.toString())
-
                 })
                 console.log('ls poll added successfully to the database:\n%O', result)
-
             } else if (firstField === "close") {
                 console.log("ls Processing a close...")
                 result = await this.closes?.insertOne({
                     txid,
                     outputIndex,
                     walID: decodedFields[1].toString(),
-                    // pollId: decodedFields[2].toString(),
                     index: decodedFields[3].toString()
                 })
             } else {
@@ -111,7 +106,7 @@ export class PollrLookupService implements LookupService {
             console.error(`Failed to process and store the output for TXID ${txid} at index ${outputIndex}:\n%O`, error)
             throw new Error('Output addition failed.')
         }
-        console.log("ls leaving!")
+        // console.log("ls leaving!")//debug purposes
     }
 
     /**
@@ -132,8 +127,7 @@ export class PollrLookupService implements LookupService {
             for (const collection of collections) {
                 await this.connection?.db('pollrservice').collection(collection.name).deleteMany({ txid, outputIndex })
                 console.log(`Deleted documents from collection: ${collection.name}`)
-            }//need to spend all vote tokens related to that poll, also need to save that data here. maybe not because it will just call output added?
-            // try topic manager 
+            }
         } catch (error) {
             console.error("Error deleting from collections:", error)
         }
@@ -213,7 +207,7 @@ export class PollrLookupService implements LookupService {
      */
     async getDocumentation(): Promise<string> {
         return `
-      # Voting Lookup Service
+      # Pollr Lookup Service
       - Used to track open/closed polls and vote statuses.
       - Supports queries to check poll validity and existing votes.
     `
@@ -224,9 +218,9 @@ export class PollrLookupService implements LookupService {
      */
     async getMetaData() {
         return {
-            name: "VotingLookupService",
+            name: "PollrLookupService",
             shortDescription: "Tracks and validates polls and votes",
-            iconURL: "/icons/lookup.png",
+            iconURL: "N/A",
             version: "1.0",
             informationURL: "/docs/lookup"
         }
