@@ -9,10 +9,10 @@ const LoadingBar = styled(LinearProgress)({
 })
 
 
-const fetchPollResults = async (pollId: string): Promise<{ type: "completed" ;data: string[]; winner: string }> => {
+const fetchPollResults = async (poll: Poll): Promise<{ type: "completed" ;data: string[]; winner: string }> => {
   const pollResults: Record<string, Record<string, number>> = {
   }
-  const results = pollResults[pollId] || {}
+  const results = pollResults[poll.id] || {}
   const formattedResults = Object.entries(results).map(([choice, votes]) => `${choice}: ${votes} votes`)
 
   // Determine the winner by finding the option with the highest votes

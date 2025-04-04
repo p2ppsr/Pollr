@@ -10,8 +10,8 @@ const LoadingBar = styled(LinearProgress)({
   margin: '1em'
 })
 
-const viewPoll = async (pollId: string): Promise<{ type: "close" | "open" | "completed", data: string[] }> => {
-   let result: Record<string, number>[] = await fetchOpenVotes(pollId.toString())
+const viewPoll = async (poll: Poll): Promise<{ type: "close" | "open" | "completed", data: string[] }> => {
+   let result: Record<string, number>[] = await fetchOpenVotes(poll.id)
       const stringArray: string[] = result.map(record => {
         // Each record is assumed to have a single key-value pair.
         const [option, count] = Object.entries(record)[0]

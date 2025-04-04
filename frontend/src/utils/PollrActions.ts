@@ -1,4 +1,4 @@
-import { WalletClient, PushDrop, Utils, Transaction, type WalletOutput, CreateActionInput, IdentityClient, Beef, LookupResolver, TopicBroadcaster } from '@bsv/sdk'
+import { WalletClient, PushDrop, Utils, Transaction, type WalletOutput, CreateActionInput, IdentityClient, Beef, LookupResolver, TopicBroadcaster, SignActionSpend } from '@bsv/sdk'
 import { Option, PollQuery, Poll } from '../types/types'
 import { LookupQuestion } from '@bsv/overlay'
 export async function submitCreatePolls({
@@ -76,10 +76,10 @@ export async function submitCreatePolls({
     return "parsedResponse"
 }
 export async function submitVote({
-    pollId,
-    index, }: {
-        pollId: string,
-        index: string,
+    poll,
+index }: {
+        poll: Poll
+        index: string
     }):
     Promise<string> {
     const walletClient = new WalletClient()
@@ -91,7 +91,7 @@ export async function submitVote({
     const fields = [
         Buffer.from("vote", "utf8"),
         Buffer.from('' + walID.publicKey, "utf8"),
-        Buffer.from('' + pollId, "utf8"),
+        Buffer.from('' + poll.id, "utf8"),
         Buffer.from('' + index, "utf8"),
     ]
     const writer = new Utils.Writer()
@@ -106,7 +106,7 @@ export async function submitVote({
         [flattenedArray],
         [0, 'testvote'],
         '1',
-        walID.publicKey
+        poll.key
     )
 
     const newPollToken = await walletClient.createAction({
@@ -161,7 +161,7 @@ export async function closePoll({
     let votes: string[][] = []
     for (const output of lookupResult.outputs) {
         const parsedTransaction = Transaction.fromBEEF(output.beef)
-        const decoded = await PushDrop.decode(parsedTransaction.outputs[output.outputIndex].lockingScript)
+        const decoded = PushDrop.decode(parsedTransaction.outputs[output.outputIndex].lockingScript)
 
         const reader = new Utils.Reader(decoded.fields[0])
         const decodedFields = []
@@ -227,6 +227,7 @@ export async function closePoll({
             beefer.mergeBeef(vote.beef)
         }
 
+            console.log('computed votes', votes)
      const { signableTransaction } = await walletClient.createAction({
           description: `Closing token`,
           inputBEEF: beefer.toBinary(),
@@ -245,10 +246,26 @@ export async function closePoll({
             throw new Error('Failed to create signable transaction')
           }
           const tx = Transaction.fromAtomicBEEF(signableTransaction.tx!)
+          const pd = new PushDrop(walletClient)
+          const spends: Record<number, SignActionSpend> = {}
+          for (let i = 0; i < inputs.length; i++) {
+            const unlocker = pd.unlock(  
+                [0, 'testclose'],
+                '1',
+                i === 0 ? 'self' : votes[i - 1][1]
+            )
+            const unlockingScript = (await unlocker.sign(tx, i)).toHex()
+            spends[i] = { unlockingScript }
+          }
+          const { tx: completedTx } = await walletClient.signAction({
+            reference: signableTransaction.reference,
+            spends
+          })
+          const parsedCompletedTx = Transaction.fromAtomicBEEF(completedTx!)
     const broadcaster = new TopicBroadcaster(['tm_pollr'], {
         networkPreset: location.hostname === 'localhost' ? 'local' : network
     })
-    await broadcaster.broadcast(tx)
+    await broadcaster.broadcast(parsedCompletedTx)
     return 'pollresutls'
 }
 export async function fetchAllOpenPolls(): Promise<Poll[]> {
@@ -465,6 +482,7 @@ export async function getPollOptions(pollId: string): Promise<string[]> {
     if (lookupResult.type !== 'output-list') {
         throw new Error('Lookup result type must be output-list')
     }
+    // if (lookupResult.outputs)
     const parsedTransaction = Transaction.fromBEEF(lookupResult.outputs[0].beef)
     const decoded = PushDrop.decode(parsedTransaction.outputs[0].lockingScript)
 

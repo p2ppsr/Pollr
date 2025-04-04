@@ -8,7 +8,7 @@ import { styled } from '@mui/system'
 import {LinearProgress} from '@mui/material'
 interface PollsListProps {
   polls: Poll[]
-  onPollClick: (pollId: string) => void
+  onPollClick: (poll: Poll) => void
 }
 
 const LoadingBar = styled(LinearProgress)({
@@ -30,7 +30,7 @@ const PollsList: React.FC<PollsListProps> = ({ polls, onPollClick }) => {
           <tr
             key={poll.date}
             className="poll-row"
-            onClick={() => onPollClick(poll.id)}
+            onClick={() => onPollClick(poll)}
           >
             <td>
               <Img
@@ -52,7 +52,7 @@ const PollsList: React.FC<PollsListProps> = ({ polls, onPollClick }) => {
 interface PollsDisplayProps {
   polls: Poll[]
   onPollAction: (
-    pollId: string,
+   poll:Poll,
     choice?: string
   ) => Promise<{ type: "open" | "close" | "completed"; data: string[]; winner?: string }>
   actionLabel: string
@@ -64,18 +64,18 @@ export default function PollsDisplay({
   actionLabel,
   title,
 }: PollsDisplayProps) {
-  const [selectedPoll, setSelectedPoll] = useState<string | null>(null)
+  const [selectedPoll, setSelectedPoll] = useState<Poll | null>(null)
   const [actionData, setActionData] = useState<string[]>([])
   const [actionType, setActionType] = useState<"open" | "close" | "completed" | null>(null)
   const [winner, setWinner] = useState<string | null>(null)
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const handlePollClick = async (pollId: string) => {
+  const handlePollClick = async (poll: Poll) => {
     setLoading(true)
-    setSelectedPoll(pollId)
+    setSelectedPoll(poll)
     setSelectedChoice(null) // Reset any previous selection
-    const result = await onPollAction(pollId)
+    const result = await onPollAction(poll)
     setActionType(result.type)
     setActionData(result.data)
     if (result.type === "completed" && result.winner) {
@@ -88,7 +88,7 @@ export default function PollsDisplay({
     if (selectedPoll && selectedChoice) {
       // Extract only the part before the colon
       const voteOption = selectedChoice.split(":")[0].trim()
-      submitVote({ pollId: selectedPoll.toString(), index: voteOption })
+      submitVote({ poll: selectedPoll, index: voteOption })
     }
     // setTimeout(() => {
     //   if (selectedPoll)
@@ -157,7 +157,7 @@ export default function PollsDisplay({
               ) : (
                 <p>No results available.</p>
               )}
-              <Button className="close-button" onClick={() => closePoll({ pollId: selectedPoll.toString() })}>
+              <Button className="close-button" onClick={() => closePoll({ pollId: selectedPoll.id })}>
                 Close Poll
               </Button>
             </div>

@@ -9,9 +9,9 @@ import {LinearProgress} from '@mui/material'
 const LoadingBar = styled(LinearProgress)({
   margin: '1em'
 })
-export const vote = async (pollId: string): Promise<{ type: "open"; data: string[] }> => {
-  console.log(`fetching poll: ${pollId}`)
-  let result: Record<string, number>[] = await fetchOpenVotes(pollId.toString())
+export const vote = async (poll: Poll): Promise<{ type: "open"; data: string[] }> => {
+  console.log(`fetching poll: ${poll.id}`)
+  let result: Record<string, number>[] = await fetchOpenVotes(poll.id)
   const stringArray: string[] = result.map(record => {
     const [option, count] = Object.entries(record)[0]
     return `${option}: ${count}`
