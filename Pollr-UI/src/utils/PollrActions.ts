@@ -238,22 +238,36 @@ export async function closePoll({
         'self'
         )
     let opentoken = await getPoll(pollId)
-    let tx = new Transaction();
-    tx.addInput({
-        sourceTransaction: opentoken,
-        sourceOutputIndex: 0,
-    })
+    // let tx = new Transaction();
+    // tx.addInput({
+    //     sourceTransaction: opentoken,
+    //     sourceOutputIndex: 0,
+    // })
+    // for (const vote of votetokens.outputs) {
+    //     let beef = Transaction.fromBEEF(vote.beef)
+    //     tx.addInput({
+    //         sourceTransaction: beef,
+    //         sourceOutputIndex: 0,
+    //     })
+    // }
+    // Transaction.fromBEEF(tx.toBEEF())
     const inputs: CreateActionInput[] = []
+        inputs.push({
+            outpoint: opentoken.id('hex') + '.0',
+            unlockingScriptLength: 74,
+            inputDescription: 'voteToken'
+          })
         for (const vote of votetokens.outputs) {
+            let beef = Transaction.fromBEEF(vote.beef)
           inputs.push({
-            outpoint: vote.outpoint,
+            outpoint: beef.id('hex') + ".0",
             unlockingScriptLength: 74,
             inputDescription: 'voteToken'
           })
         }
      const { signableTransaction } = await walletClient.createAction({
           description: `Closing token`,
-        //   inputBEEF: //.BEEF,
+        //   inputBEEF: tx.toBEEF(),
           inputs,
           outputs: [{
             lockingScript: lockingScript.toHex(),
@@ -270,7 +284,6 @@ export async function closePoll({
           }
         //   const partialTx = Transaction.fromBEEF(signableTransaction.tx)
           const beef = Transaction.fromAtomicBEEF(signableTransaction.tx!).toBEEF()
-
           const closeResponse = await fetch(`${pollrHost}/submit`, {
               method: 'POST',
               headers: {
@@ -393,7 +406,7 @@ export async function fetchMypolls() {
             basket: 'test',
             include: 'entire transactions'
         })
-        console.log(`BEEF: ${pollFromBasket.BEEF}`)
+        console.log(`BEEF: ${JSON.stringify(pollFromBasket)}`)
         const asciiStr = Buffer.from(pollFromBasket.BEEF!).toString('ascii');
         let localpolls: string[][] = []
         const polls = await Promise.all(pollFromBasket.outputs.map(async (task: WalletOutput, i: number) => {
