@@ -2,7 +2,7 @@
 // import { toEnvelopeFromBEEF } from '@babbage/sdk-ts/dist/toEnvelopeFromBEEF'
 // import { toEnvelopeFromBEEF } from '@babbage/sdk-ts'
 // import pushdrop from 'pushdrop'
-import { WalletClient, PushDrop, Utils, Transaction, ProtoWallet, type WalletOutput, DiscoverCertificatesResult, CreateActionInput, IdentityClient, Beef } from '@bsv/sdk'
+import { WalletClient, PushDrop, Utils, Transaction, ProtoWallet, type WalletOutput, TransactionInput, CreateActionInput, IdentityClient, Beef } from '@bsv/sdk'
 // import { getPublicKey, createSignature } from "@babbage/sdk-ts"
 import { Option, PollQuery, OptionResults, Poll } from '../types/types'
 import { LookupQuestion } from '@bsv/overlay'
@@ -21,12 +21,12 @@ export async function submitCreatePolls({
         options: Option[]
     }):
     Promise<string> {
-    const WC = new WalletClient()
-    const walID = await WC.getPublicKey({
+    const walletClient = new WalletClient()
+    const walID = await walletClient.getPublicKey({
         identityKey: true
     })
 
-    const PD = new PushDrop(WC)
+    const PD = new PushDrop(walletClient)
     const fields = [
         Buffer.from("open", "utf8"),
         Buffer.from('' + walID.publicKey, "utf8"),           // Ensure walID is a string
@@ -52,7 +52,7 @@ export async function submitCreatePolls({
         'self'
     )
 
-    const newPollToken = await WC.createAction({
+    const newPollToken = await walletClient.createAction({
         outputs: [{
             lockingScript: OutputScript.toHex(),
             satoshis: 1,
@@ -92,12 +92,12 @@ export async function submitVote({
         index: string,
     }):
     Promise<string> {
-    const WC = new WalletClient()
-    const walID = await WC.getPublicKey({
+    const walletClient = new WalletClient()
+    const walID = await walletClient.getPublicKey({
         identityKey: true
     })
 
-    const PD = new PushDrop(WC)
+    const PD = new PushDrop(walletClient)
     const fields = [
         Buffer.from("vote", "utf8"),
         Buffer.from('' + walID.publicKey, "utf8"),
@@ -119,7 +119,7 @@ export async function submitVote({
         walID.publicKey
     )
 
-    const newPollToken = await WC.createAction({
+    const newPollToken = await walletClient.createAction({
         outputs: [{
             lockingScript: OutputScript.toHex(),
             satoshis: 1,
@@ -139,7 +139,7 @@ export async function submitVote({
     //     protocolID: [1, 'identity'],
     //     keyID: '1'
     // })
-    //  await WC.createSignature({
+    //  await walletClient.createSignature({
     //     data: flattenedArray,
     //     counterparty: "self",
     //     protocolID: [1, 'votesign'],
@@ -150,12 +150,7 @@ export async function submitVote({
         throw new Error("Transaction creation failed: tx is undefined")
     }
     const beef = Transaction.fromAtomicBEEF(newPollToken.tx!).toBEEF()
-    let bf = new Beef()
 
-    console.log(`beef tx: ${JSON.stringify(tx)}`)
-    console.log(`beef: ${bf.findAtomicTransaction(beef.toString())}`)
-
-    console.log(`sending ${beef}`)
     const response = await fetch(`${pollrHost}/submit`, {
         method: 'POST',
         headers: {
@@ -166,17 +161,17 @@ export async function submitVote({
     })
     const parsedResponse = await response.json()
     console.log(`response: ${parsedResponse}`)
+    
     return "parsedResponse"
 }
 export async function closePoll({
     pollId }: {
         pollId: string,
     }): Promise<string> {
-    const WC = new WalletClient()
+    const walletClient = new WalletClient()
     let query = {} as PollQuery
     query.txid = pollId
-    query.type = 'vote'
-    query.status = "all"
+    query.type = 'allvotesfor'
     let question = {} as LookupQuestion
     question.query = query
     question.service = 'ls_pollr'
@@ -188,14 +183,104 @@ export async function closePoll({
         },
         body: JSON.stringify(question)
     })
-    const parsedResponse = await response.json()
-    const inputs: CreateActionInput[] = []
-    let beef = new Beef()
-    for (let i = 0; i < parsedResponse.result.voteDetails.length; i++) {
-        console.log(`beef: ${beef.findTxid(parsedResponse.result.voteDetails[0].txid)}`)
-    }
-    // console.log(parsedResponse)
+    const votetokens = await response.json()
+    let votes: string[][] = []
+    for (const output of votetokens.outputs) {
 
+        const parsedTransaction = Transaction.fromBEEF(output.beef)
+        const decoded = await PushDrop.decode(parsedTransaction.outputs[0].lockingScript)
+
+        const reader = new Utils.Reader(decoded.fields[0])
+        const decodedFields = []
+        while (!reader.eof()) {
+            const fieldLength = reader.readVarIntNum()
+            const fieldBytes = reader.read(fieldLength)
+            decodedFields.push(Utils.toUTF8(fieldBytes))
+        }
+        console.log(JSON.stringify(decodedFields))
+        votes.push(decodedFields)
+    }
+    const voteCounts: Record<string, number> = {} as Record<string, number>
+    const voteOptions = await getPollOptions(pollId)
+    voteOptions.forEach(option => {
+        voteCounts[option] = 0
+    })
+
+    // Count the votes only for allowed options.
+    votes.forEach(vote => {
+        const option = vote[3]
+        if (option in voteCounts) {
+            voteCounts[option] += 1
+        }
+    })
+    const voteCountsArray: Record<string, number>[] = voteOptions.map(option => ({ [option]: voteCounts[option] }))
+
+    const writer = new Utils.Writer()
+
+    for (const voteObj of voteCountsArray) {
+      const key = Object.keys(voteObj)[0]
+      const value = voteObj[key]
+    
+      const keyBuffer = Buffer.from(key, "utf8")
+      writer.writeVarIntNum(keyBuffer.length)
+      writer.write(Array.from(keyBuffer))
+    
+      const valueBuffer = Buffer.from(String(value), "utf8")
+      writer.writeVarIntNum(valueBuffer.length)
+      writer.write(Array.from(valueBuffer))
+    }
+    
+    const data = writer.toArray()
+    const lockingScript = await new PushDrop(walletClient).lock(
+        [data],
+        [0, 'testclose'],
+        '1',
+        'self'
+        )
+    let opentoken = await getPoll(pollId)
+    let tx = new Transaction();
+    tx.addInput({
+        sourceTransaction: opentoken,
+        sourceOutputIndex: 0,
+    })
+    const inputs: CreateActionInput[] = []
+        for (const vote of votetokens.outputs) {
+          inputs.push({
+            outpoint: vote.outpoint,
+            unlockingScriptLength: 74,
+            inputDescription: 'voteToken'
+          })
+        }
+     const { signableTransaction } = await walletClient.createAction({
+          description: `Closing token`,
+        //   inputBEEF: //.BEEF,
+          inputs,
+          outputs: [{
+            lockingScript: lockingScript.toHex(),
+            satoshis: 1,
+            outputDescription: 'close token'
+          }],
+          options: {
+            acceptDelayedBroadcast: false,
+            randomizeOutputs: false
+          }
+        })
+        if (signableTransaction === undefined) {
+            throw new Error('Failed to create signable transaction')
+          }
+        //   const partialTx = Transaction.fromBEEF(signableTransaction.tx)
+          const beef = Transaction.fromAtomicBEEF(signableTransaction.tx!).toBEEF()
+
+          const closeResponse = await fetch(`${pollrHost}/submit`, {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/octet-stream',
+                  'X-Topics': JSON.stringify(['tm_pollr'])
+              },
+              body: new Uint8Array(beef)
+          })
+          const parsedResponse = await response.json()
+          console.log(`response: ${parsedResponse}`)
     return 'pollresutls'
 }
 export async function fetchAllOpenPolls(): Promise<Poll[]> {
@@ -214,8 +299,8 @@ export async function fetchAllOpenPolls(): Promise<Poll[]> {
         body: JSON.stringify(question)
     })
     const parsedResponse = await response.json()
-    const WC = new WalletClient()
-    const PD = new PushDrop(WC)
+    const walletClient = new WalletClient()
+    const PD = new PushDrop(walletClient)
     let pollsData: string[][] = []
     for (const output of parsedResponse.outputs) {
 
@@ -229,32 +314,31 @@ export async function fetchAllOpenPolls(): Promise<Poll[]> {
             const fieldBytes = reader.read(fieldLength)
             decodedFields.push(Utils.toUTF8(fieldBytes))
         }
+        decodedFields.push(parsedTransaction.id('hex'))
         console.log(JSON.stringify(decodedFields))
         pollsData.push(decodedFields)
 
     }
-        const polls: Poll[] = pollsData.map((row: string[]) => ({
-          key: row[1],
-          avatarUrl: row[7],
-          id: row[1],
-          name: row[2],
-          desc: row[3],
-          date: row[6],
-          status: row[0]
-        }));
+    const polls: Poll[] = pollsData.map((row: string[]) => ({
+        key: row[1],
+        avatarUrl: row[7],
+        id: row.pop()!.toString(),
+        name: row[2],
+        desc: row[3],
+        date: row[6],
+        status: row[0]
+    }));
     return polls
 }
 export async function fetchOpenVotes(pollId: string): Promise<Record<string, number>[]> {
     let query = {} as PollQuery
     query.type = 'allvotesfor'
     query.status = 'open'
-    console.log(`asking for pid: ${pollId}`)
 
     query.txid = pollId
     let question = {} as LookupQuestion
     question.query = query
     question.service = 'ls_pollr'
-    console.log(`asking for: ${query.txid}`)
     const response = await fetch(`${pollrHost}/lookup`, {
         method: 'POST',
         headers: {
@@ -265,8 +349,7 @@ export async function fetchOpenVotes(pollId: string): Promise<Record<string, num
     })
 
     const parsedResponse = await response.json()
-    console.log(JSON.stringify(parsedResponse))
-
+    let votes: string[][] = []
     for (const output of parsedResponse.outputs) {
 
         const parsedTransaction = Transaction.fromBEEF(output.beef)
@@ -280,33 +363,44 @@ export async function fetchOpenVotes(pollId: string): Promise<Record<string, num
             decodedFields.push(Utils.toUTF8(fieldBytes))
         }
         console.log(JSON.stringify(decodedFields))
-        // pollsData.push(decodedFields)
+        votes.push(decodedFields)
     }
-    let listOfRecords: Record<string, number>[] = []
-    return listOfRecords
+    const voteCounts: Record<string, number> = {} as Record<string, number>
+    const voteOptions = await getPollOptions(pollId)
+    voteOptions.forEach(option => {
+        voteCounts[option] = 0
+    })
+
+    // Count the votes only for allowed options.
+    votes.forEach(vote => {
+        const option = vote[3]
+        if (option in voteCounts) {
+            voteCounts[option] += 1
+        }
+    })
+    const voteCountsArray: Record<string, number>[] = voteOptions.map(option => ({ [option]: voteCounts[option] }))
+
+    return voteCountsArray
 }
 export async function fetchMypolls() {
-    const WC = new WalletClient()
+    const walletClient = new WalletClient()
     let formattedPoll: {}[] = []
     try {
-        const walID = await WC.getPublicKey({
+        const walID = await walletClient.getPublicKey({
             identityKey: true
         })
-        const pollFromBasket = await WC.listOutputs({
+        const pollFromBasket = await walletClient.listOutputs({
             basket: 'test',
             include: 'entire transactions'
         })
-        console.log(`BEEF: ${JSON.stringify(pollFromBasket.BEEF)}`)
+        console.log(`BEEF: ${pollFromBasket.BEEF}`)
         const asciiStr = Buffer.from(pollFromBasket.BEEF!).toString('ascii');
-        console.log(asciiStr);
         let localpolls: string[][] = []
         const polls = await Promise.all(pollFromBasket.outputs.map(async (task: WalletOutput, i: number) => {
             try {
                 const tx = Transaction.fromBEEF(pollFromBasket.BEEF as number[], task.outpoint.split('.')[0])
-                console.log(`tx: ${JSON.stringify(tx)}`)
                 const lockingScript = tx!.outputs[0].lockingScript
                 const decodedOutput = await PushDrop.decode(lockingScript)
-                console.log(`${JSON.stringify(decodedOutput)}`)
                 const reader = new Utils.Reader(decodedOutput.fields[0])
                 const decodedFields = []
                 while (!reader.eof()) {
@@ -314,9 +408,7 @@ export async function fetchMypolls() {
                     const fieldBytes = reader.read(fieldLength)
                     decodedFields.push(Utils.toUTF8(fieldBytes))
                 }
-                console.log(`txids: ${pollFromBasket.outputs[i].outpoint.split('.')[0]}`)
                 decodedFields.push(pollFromBasket.outputs[i].outpoint.split('.')[0])
-                console.log(decodedFields)
                 localpolls.push(decodedFields)
                 // return decodedFields
             }
@@ -324,10 +416,8 @@ export async function fetchMypolls() {
                 console.log(`error decoding polls ${e}`)
             }
         }))
-        console.log(localpolls)
         for (let i = 0; i < localpolls.length; i++) {
             const poll = localpolls[i]
-            let time = new Date(parseInt(poll[6], 10) * 1000)
             let id = poll.pop()!
             formattedPoll.push({
                 key: i.toString(),
@@ -335,7 +425,7 @@ export async function fetchMypolls() {
                 id: id,
                 name: poll[2],
                 desc: poll[3],
-                date: time.toLocaleDateString(),
+                date: poll[6],
             })
             // console.log(parsedResponse.result.polls)
         }
@@ -381,14 +471,13 @@ export async function getClosedPolls() {
     }
     return pollresutls
 }
-export async function getPoll(pollId: string): Promise<{ results: Record<string, number>[], pollStatus: string }> {
-    let WC = new WalletClient()
+export async function getPollOptions(pollId: string): Promise<string[]> {
+    let walletClient = new WalletClient()
     let query = {} as PollQuery
     query.type = 'poll'
     query.status = 'open'
     query.txid = pollId
-
-    const walID = await WC.getPublicKey({
+    const walID = await walletClient.getPublicKey({
         identityKey: true
     })
     let question = {} as LookupQuestion
@@ -404,26 +493,50 @@ export async function getPoll(pollId: string): Promise<{ results: Record<string,
     })
 
     const parsedResponse = await response.json()
-    // const parsedTransaction = Transaction.fromBEEF(parsedResponse.output[0].beef)
-    // const decoded = await PushDrop.decode(parsedTransaction.outputs[0].lockingScript)
+    const parsedTransaction = Transaction.fromBEEF(parsedResponse.outputs[0].beef)
+    const decoded = await PushDrop.decode(parsedTransaction.outputs[0].lockingScript)
 
-    // const reader = new Utils.Reader(decoded.fields[0])
-    // const decodedFields = []
-    // while (!reader.eof()) {
-    //     const fieldLength = reader.readVarIntNum()
-    //     const fieldBytes = reader.read(fieldLength)
-    //     decodedFields.push(Utils.toUTF8(fieldBytes))
-    // }
-    // console.log(JSON.stringify(decodedFields))
-    let results: Record<string, number>[] = []
-    let pollStatus: string = ''
-    return { results, pollStatus }
+    const reader = new Utils.Reader(decoded.fields[0])
+    const decodedFields = []
+    while (!reader.eof()) {
+        const fieldLength = reader.readVarIntNum()
+        const fieldBytes = reader.read(fieldLength)
+        decodedFields.push(Utils.toUTF8(fieldBytes))
+    }
+    console.log(JSON.stringify(decodedFields.slice(7)))
+
+    return decodedFields.slice(7)
+}
+export async function getPoll(pollId: string): Promise<Transaction> {
+    let walletClient = new WalletClient()
+    let query = {} as PollQuery
+    query.type = 'poll'
+    query.status = 'open'
+    query.txid = pollId
+    const walID = await walletClient.getPublicKey({
+        identityKey: true
+    })
+    let question = {} as LookupQuestion
+    question.query = query
+    question.service = 'ls_pollr'
+    const response = await fetch(`${pollrHost}/lookup`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/octet-stream',
+            'X-Topics': JSON.stringify(['ls_pollr'])
+        },
+        body: JSON.stringify(question)
+    })
+
+    const parsedResponse = await response.json()
+
+    return Transaction.fromBEEF(parsedResponse.outputs[0].beef)
 }
 export async function getAvatar(identityKey: string): Promise<string> {
     let avatarUrl: string = ''
-    let WC = new WalletClient()
+    let walletClient = new WalletClient()
     try {
-        const identityClient = new IdentityClient(WC)
+        const identityClient = new IdentityClient(walletClient)
         const identities = await identityClient.resolveByIdentityKey({
             identityKey: identityKey
         })

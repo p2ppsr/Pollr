@@ -3,6 +3,7 @@ import { LookupQuestion, PublicKey, Transaction, Signature, PushDrop, ProtoWalle
 // import { verifySignature } from "@babbage/sdk-ts"
 import { PollrLookupService } from '../Pollr-LookupService/PollrLookupService.js'
 import { PollQuery } from '../Pollr-LookupService/types.js'
+import { lookup } from 'dns'
 // import pushdrop from 'pushdrop'
 export class PollrTopicManager implements TopicManager {
     constructor(private lookupService: PollrLookupService) { }
@@ -18,10 +19,7 @@ export class PollrTopicManager implements TopicManager {
             const parsedTransaction = Transaction.fromBEEF(beef)
             for (const [i, output] of parsedTransaction.outputs.entries()) {
                 try {
-                    console.log("attemping to decode")
                     const decodedOutput = await PushDrop.decode(output.lockingScript)
-                    console.log(JSON.stringify(decodedOutput))
-                    console.log("attemping to remove last field")
 
                     // const signature = decodedOutput.fields.pop() as number[]
                     //////////////////////////////////
@@ -33,10 +31,7 @@ export class PollrTopicManager implements TopicManager {
                         const fieldBytes = reader.read(fieldLength)
                         decodedFields.push(Utils.toUTF8(fieldBytes))
                     }
-                    console.log(decodedFields)
-                    console.log(`ff: ${JSON.stringify(decodedFields)}`)
                     if (decodedFields[0] === "vote") {
-                        // console.log(`checking amount of fields. `)
                         if (Array.isArray(decodedFields) && decodedFields.length !== 4) {
                             throw new Error('Token did not meet criteria.')
                         }
@@ -66,14 +61,11 @@ export class PollrTopicManager implements TopicManager {
                         question.query = voteQuery
                         question.service = 'ls_pollr'
                         //check dups
-                        const lookupResult = await this.lookupService.lookup(question)
-                        if ("type" in lookupResult) {
-                            if (lookupResult.type === "freeform") {
-                                let vote = lookupResult.result as { voteDetails: string }
-                                if (vote.voteDetails !== null) {
-                                    throw new Error("dup vote.")
-                                }
-                            }
+                        console.log(`checking dup ${JSON.stringify(voteQuery)}`)
+                        const lookupResult = await this.lookupService.lookup(question) as LookupFormula
+                        console.log(`lookupResult: ${lookupResult}`)
+                        if (!lookupResult || lookupResult.length > 0) {
+                            throw new Error("dup vote.")
                         }
                         // //check valid signiture
                         // const data = decodedOutput.fields.reduce((a, e) => [...a, ...e], [])

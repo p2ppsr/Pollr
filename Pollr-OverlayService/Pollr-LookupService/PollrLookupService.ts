@@ -173,10 +173,12 @@ export class PollrLookupService implements LookupService {
         if (question.query === undefined || question.query === null) {
             throw new Error('A valid query must be provided!')
         }
+        console.log(`query: ${JSON.stringify(question.query)}`)
         let cursor: any
         const { type, txid, voterId, status } = question.query as PollQuery
         if (type === "vote") {
-            cursor = await this.votes?.find({ voterId: voterId }).toArray()
+            cursor = await this.votes?.find({pollId: txid, walID: voterId }).toArray()
+            console.log(`found votes: ${cursor}`)
         }
         else if (type == "poll") {
             if(status == 'closed')
