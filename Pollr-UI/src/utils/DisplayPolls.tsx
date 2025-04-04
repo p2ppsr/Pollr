@@ -8,7 +8,13 @@ interface PollsListProps {
   polls: Poll[]
   onPollClick: (pollId: string) => void
 }
+import { styled } from '@mui/system'
 
+import {LinearProgress} from '@mui/material'
+
+const LoadingBar = styled(LinearProgress)({
+  margin: '1em'
+})
 const PollsList: React.FC<PollsListProps> = ({ polls, onPollClick }) => {
   return (
     <table className="poll-table">
@@ -53,7 +59,6 @@ interface PollsDisplayProps {
   actionLabel: string
   title: string
 }
-
 export default function PollsDisplay({
   polls,
   onPollAction,
@@ -65,8 +70,10 @@ export default function PollsDisplay({
   const [actionType, setActionType] = useState<"open" | "close" | "completed" | null>(null)
   const [winner, setWinner] = useState<string | null>(null)
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
   const handlePollClick = async (pollId: string) => {
+    setLoading(true)
     setSelectedPoll(pollId)
     setSelectedChoice(null) // Reset any previous selection
     const result = await onPollAction(pollId)
@@ -75,6 +82,7 @@ export default function PollsDisplay({
     if (result.type === "completed" && result.winner) {
       setWinner(result.winner)
     }
+    setLoading(false)
   }
 
   const handleConfirmVote = async () => {
@@ -83,11 +91,19 @@ export default function PollsDisplay({
       const voteOption = selectedChoice.split(":")[0].trim()
       submitVote({ pollId: selectedPoll.toString(), index: voteOption })
     }
-    setTimeout(() => {
-      if (selectedPoll)
-        handlePollClick(selectedPoll)
-    }, 3000)
+    // setTimeout(() => {
+    //   if (selectedPoll)
+    //     handlePollClick(selectedPoll)
+    // }, 5000)
+  }
 
+  // If data is being fetched, render only the loading bar
+  if (loading) {
+    return (
+      <div className="poll-container">
+        <LoadingBar />
+      </div>
+    )
   }
 
   return (

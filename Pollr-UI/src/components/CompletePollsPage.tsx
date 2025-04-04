@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react"
 import PollsDisplay from "../utils/DisplayPolls"
 import { Poll } from "../types/types"
+import { styled } from '@mui/system'
+import {LinearProgress} from '@mui/material'
+import { getClosedPolls} from "../utils/PollrActions"
+const LoadingBar = styled(LinearProgress)({
+  margin: '1em'
+})
 
-const fetchCompletedPolls = async (): Promise<Poll[]> => {
-  return [
-   
-  ]
-}
 
 const fetchPollResults = async (pollId: string): Promise<{ type: "completed" ;data: string[]; winner: string }> => {
   const pollResults: Record<string, Record<string, number>> = {
@@ -36,11 +37,17 @@ const fetchPollResults = async (pollId: string): Promise<{ type: "completed" ;da
 // }
 const CompletedPollsPage: React.FC = () => {
   const [polls, setPolls] = useState<Poll[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // useEffect(() => {
-  //   fetchCompletedPolls().then(setPolls)
-  // }, [])
-
+  useEffect(() => {
+    getClosedPolls().then(setPolls)
+    setLoading(false)
+  }, [])
+  if (loading) {
+    return (
+     <LoadingBar></LoadingBar>
+    )
+  }
   return (
     <PollsDisplay 
       polls={polls} 

@@ -465,24 +465,36 @@ export async function getClosedPolls() {
         body: JSON.stringify(question)
     })
     const parsedResponse = await response.json()
-    let pollresutls: Poll[] = []
-    console.log(JSON.stringify(parsedResponse))
-    const pollsData = parsedResponse.result.polls
+    const walletClient = new WalletClient()
+    const PD = new PushDrop(walletClient)
+    let pollsData: string[][] = []
+    for (const output of parsedResponse.outputs) {
 
-    for (let i = 0; i < pollsData.length; i++) {
-        const poll = pollsData[i]
-        let time = new Date(parseInt(poll.date, 10) * 1000)
-        pollresutls.push({
-            key: i.toString(),
-            avatarUrl: await getAvatar(poll.walID!),
-            id: poll.txid,
-            name: poll.pollName,
-            desc: poll.pollDescription,
-            date: time.toLocaleDateString(),
-        })
-        // console.log(parsedResponse.result.polls) 
+        const parsedTransaction = Transaction.fromBEEF(output.beef)
+        const decoded = await PushDrop.decode(parsedTransaction.outputs[0].lockingScript)
+
+        const reader = new Utils.Reader(decoded.fields[0])
+        const decodedFields = []
+        while (!reader.eof()) {
+            const fieldLength = reader.readVarIntNum()
+            const fieldBytes = reader.read(fieldLength)
+            decodedFields.push(Utils.toUTF8(fieldBytes))
+        }
+        decodedFields.push(parsedTransaction.id('hex'))
+        console.log(JSON.stringify(decodedFields))
+        pollsData.push(decodedFields)
+
     }
-    return pollresutls
+    const polls: Poll[] = pollsData.map((row: string[]) => ({
+        key: row[1],
+        avatarUrl: row[7],
+        id: row.pop()!.toString(),
+        name: row[2],
+        desc: row[3],
+        date: row[6],
+        status: row[0]
+    }));
+    return polls
 }
 export async function getPollOptions(pollId: string): Promise<string[]> {
     let walletClient = new WalletClient()

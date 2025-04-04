@@ -1,8 +1,14 @@
 import React, { useState } from 'react'
 import './PollForm.css'
 import { submitCreatePolls } from '../utils/PollrActions'
-import {Option} from '../types/types'
+import { Option } from '../types/types'
+import { styled } from '@mui/system'
 
+import { LinearProgress } from '@mui/material'
+
+const LoadingBar = styled(LinearProgress)({
+  margin: '1em'
+})
 
 const PollForm: React.FC = () => {
   const [pollName, setPollName] = useState<string>('')
@@ -10,6 +16,7 @@ const PollForm: React.FC = () => {
   const [numberOfOptions, setNumberOfOptions] = useState<string>('2')
   const [optionsType, setOptionsType] = useState<'text' | 'image'>('text')
   const [options, setOptions] = useState<Option[]>([{ value: '' }, { value: '' }])
+  const [loading, setLoading] = useState(false)
   const handleNumberOfOptionsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setNumberOfOptions(value)
@@ -75,16 +82,19 @@ const PollForm: React.FC = () => {
       alert('Duplicate options are not allowed. Please enter unique values.')
       return
     }
-
+    setLoading(true)
     submitCreatePolls({
       pollName,
       pollDescription,
       optionsType,
       options,
     })
-    // setTimeout(() => {
-    //     window.location.reload()
-    //   }, 5000)
+    setLoading(false)
+    setPollName('')
+    setPollDescription('')
+    setOptionsType('text')
+    setOptions([])
+    setNumberOfOptions('2')
     console.log({
       pollName,
       pollDescription,
@@ -92,7 +102,12 @@ const PollForm: React.FC = () => {
       options,
     })
   }
-
+  if(loading)
+  {
+    return(
+      <LoadingBar></LoadingBar>
+    )
+  }
   return (
     <form className="poll-form" onSubmit={handleSubmit}>
       <h2>Create a Poll</h2>
@@ -115,7 +130,7 @@ const PollForm: React.FC = () => {
           required
         />
       </div>
-{/* 
+      {/* 
       <div className="form-group">
         <label>Options Type:</label>
         <select
@@ -123,8 +138,8 @@ const PollForm: React.FC = () => {
           onChange={(e) => setOptionsType(e.target.value as 'text' | 'image')}
         >
           <option value="text">Text</option> */}
-          {/* <option value="image">Image</option> */}
-        {/* </select> */}
+      {/* <option value="image">Image</option> */}
+      {/* </select> */}
       {/* </div> */}
 
       <div className="form-group">
