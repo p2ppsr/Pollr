@@ -9,7 +9,7 @@ import {LinearProgress} from '@mui/material'
 const LoadingBar = styled(LinearProgress)({
   margin: '1em'
 })
-export const vote = async (poll: Poll): Promise<{ type: "open"; data: string[] }> => {
+export const fetchPollInfo = async (poll: Poll): Promise<{ type: "open"; data: string[] }> => {
   console.log(`fetching poll: ${poll.id}`)
   let result: Record<string, number>[] = await fetchOpenVotes(poll.id)
   const stringArray: string[] = result.map(record => {
@@ -24,7 +24,6 @@ export const vote = async (poll: Poll): Promise<{ type: "open"; data: string[] }
 const ActivePollsPage: React.FC = () => {
   const [polls, setPolls] = useState<Poll[]>([])
   const [loading, setLoading] = useState(true)
-
   useEffect(() => {
     fetchAllOpenPolls().then((data) => {
       setPolls(data as Poll[])
@@ -41,7 +40,7 @@ const ActivePollsPage: React.FC = () => {
   return (
     <PollsDisplay
       polls={polls}
-      onPollAction={vote}
+      onPollAction={fetchPollInfo}
       actionLabel="Vote for your choice"
       title="Active Polls"
     />

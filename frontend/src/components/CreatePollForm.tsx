@@ -64,7 +64,7 @@ const PollForm: React.FC = () => {
     setOptions(updatedOptions)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const count = parseInt(numberOfOptions, 10)
     if (isNaN(count) || count < 2 || count > 10) {
@@ -82,25 +82,29 @@ const PollForm: React.FC = () => {
       alert('Duplicate options are not allowed. Please enter unique values.')
       return
     }
-    setLoading(true)
-    submitCreatePolls({
-      pollName,
-      pollDescription,
-      optionsType,
-      options,
-    })
-    setLoading(false)
+    setLoading(true);
+    try {
+      await submitCreatePolls({
+        pollName,
+        pollDescription,
+        optionsType,
+        options,
+      })
+      alert("Poll Successfully Created!")
+      
+    } catch (error) {
+      console.error('Error submitting poll:', error)
+      alert('Error submitting poll')
+    } finally {
+      setLoading(false);
+    }
+
+    //state reset
     setPollName('')
     setPollDescription('')
     setOptionsType('text')
-    setOptions([])
     setNumberOfOptions('2')
-    console.log({
-      pollName,
-      pollDescription,
-      optionsType,
-      options,
-    })
+    setOptions([{ value: '' }, { value: '' }])
   }
   if(loading)
   {
@@ -130,17 +134,17 @@ const PollForm: React.FC = () => {
           required
         />
       </div>
-      {/* 
+{/*       
       <div className="form-group">
         <label>Options Type:</label>
         <select
           value={optionsType}
           onChange={(e) => setOptionsType(e.target.value as 'text' | 'image')}
         >
-          <option value="text">Text</option> */}
-      {/* <option value="image">Image</option> */}
-      {/* </select> */}
-      {/* </div> */}
+          <option value="text">Text</option>
+      <option value="image">Image</option>
+      </select>
+      </div> */}
 
       <div className="form-group">
         <label>Number of Options:</label>

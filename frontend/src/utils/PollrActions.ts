@@ -392,6 +392,7 @@ export async function fetchMypolls() {
                 }
                 decodedFields.push(pollFromBasket.outputs[i].outpoint.split('.')[0])
                 localpolls.push(decodedFields)
+                // console.log(`poll: ${JSON.stringify(decodedFields)}`)
                 // return decodedFields
             }
             catch (e) {
@@ -402,7 +403,7 @@ export async function fetchMypolls() {
             const poll = localpolls[i]
             let id = poll.pop()!
             formattedPoll.push({
-                key: i.toString(),
+                key: walID.publicKey,
                 avatarUrl: getAvatar(walID.publicKey),
                 id: id,
                 name: poll[2],

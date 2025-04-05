@@ -70,8 +70,11 @@ export default function PollsDisplay({
   const [winner, setWinner] = useState<string | null>(null)
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-
+  const [pollTitle, setPollTitle] = useState('')
+  const [pollDescription, setDescription] = useState('')
   const handlePollClick = async (poll: Poll) => {
+    setPollTitle(poll.name)
+    setDescription(poll.desc)
     setLoading(true)
     setSelectedPoll(poll)
     setSelectedChoice(null) // Reset any previous selection
@@ -86,14 +89,34 @@ export default function PollsDisplay({
 
   const handleConfirmVote = async () => {
     if (selectedPoll && selectedChoice) {
-      // Extract only the part before the colon
-      const voteOption = selectedChoice.split(":")[0].trim()
-      submitVote({ poll: selectedPoll, index: voteOption })
+      setLoading(true)
+      try {
+        const voteOption = selectedChoice.split(":")[0].trim()
+        await submitVote({ poll: selectedPoll, index: voteOption })
+        handlePollClick(selectedPoll)
+        alert("Vote Success!")
+      } catch (error: any) {
+        // Check if the error message indicates a duplicate vote
+        alert("Error submitting vote. Duplicate votes are not allowed.")
+      } finally {
+        setLoading(false)
+      }
     }
-    // setTimeout(() => {
-    //   if (selectedPoll)
-    //     handlePollClick(selectedPoll)
-    // }, 5000)//submit is stuck / clearning manually since submit does not return
+  }
+  const handleClosePoll = async () => {
+    if (selectedPoll) {
+      setLoading(true)
+      try{
+        await closePoll({ pollId: selectedPoll.id })
+        alert("Poll Closed")
+      }catch{
+        alert("Error closing poll.")
+      }
+      finally{
+        setLoading(false)
+      }
+
+    }
   }
 
   // If data is being fetched, render only the loading bar
@@ -113,6 +136,8 @@ export default function PollsDisplay({
       ) : (
         <div>
           <h2 className="poll-choice-title">{actionLabel}</h2>
+          <div className="poll-choice-name">Poll Name: {pollTitle}</div>
+          <div className="poll-choice-description">Description: {pollDescription}</div>
           {actionType === "open" ? (
             actionData.length > 0 ? (
               <>
@@ -157,7 +182,7 @@ export default function PollsDisplay({
               ) : (
                 <p>No results available.</p>
               )}
-              <Button className="close-button" onClick={() => closePoll({ pollId: selectedPoll.id })}>
+              <Button className="close-button" onClick={handleClosePoll}>
                 Close Poll
               </Button>
             </div>

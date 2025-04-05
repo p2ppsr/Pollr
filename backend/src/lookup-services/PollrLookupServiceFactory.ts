@@ -207,7 +207,7 @@ class PollrLookupService implements LookupService {
         return {
             name: "PollrLookupService",
             shortDescription: "Tracks and validates polls and votes",
-            iconURL: "N/A",
+            iconURL: "",
             version: "1.0",
             informationURL: "/docs/lookup"
         }
