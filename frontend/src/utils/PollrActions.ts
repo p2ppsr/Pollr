@@ -36,7 +36,7 @@ export async function submitCreatePolls({
 
   const OutputScript = await PD.lock(
     [flattenedArray],
-    [0, 'testpoll'],
+    [2, 'pollr'],
     '1',
     'self'
   )
@@ -101,7 +101,7 @@ export async function submitVote({
 
   const OutputScript = await PD.lock(
     [flattenedArray],
-    [0, 'testvote'],
+    [2, 'pollr'],
     '1',
     poll.key
   )
@@ -202,12 +202,11 @@ export async function closePoll({
   const data = writer.toArray()
   const lockingScript = await new PushDrop(walletClient).lock(
     [data],
-    [0, 'testclose'],
+    [2, 'pollr'],
     '1',
     'self'
   )
 
-  debugger
   let opentoken = await getPoll(pollId)
   const beefer = new Beef()
   const inputs: CreateActionInput[] = []
@@ -248,18 +247,31 @@ export async function closePoll({
   const tx = Transaction.fromAtomicBEEF(signableTransaction.tx!)
   const pd = new PushDrop(walletClient)
   const spends: Record<number, SignActionSpend> = {}
-  for (let i = 0; i < inputs.length; i++) {
-    const unlocker = pd.unlock(
-      [0, 'testclose'],
+
+  let unlocker = pd.unlock(
+    [2, 'pollr'],
+    '1',
+    'self'
+  )
+  let unlockingScript = (await unlocker.sign(tx, 0)).toHex()
+  spends[0] = { unlockingScript }
+
+  for (let i = 1; i < inputs.length; i++) {
+    unlocker = pd.unlock(
+      [2, 'pollr'],
       '1',
-      i === 0 ? 'self' : votes[i - 1][1]
+      votes[i - 1][1]
     )
-    const unlockingScript = (await unlocker.sign(tx, i)).toHex()
+    unlockingScript = (await unlocker.sign(tx, i)).toHex()
     spends[i] = { unlockingScript }
   }
   const { tx: completedTx } = await walletClient.signAction({
     reference: signableTransaction.reference,
-    spends
+    spends,
+    options: {
+      // acceptDelayedBroadcast: false,
+      // randomizeOutputs: false
+    }
   })
   const parsedCompletedTx = Transaction.fromAtomicBEEF(completedTx!)
   const broadcaster = new TopicBroadcaster(['tm_pollr'], {
