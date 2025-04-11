@@ -21,7 +21,7 @@ const PollsList: React.FC<PollsListProps> = ({ polls, onPollClick }) => {
     <table className="poll-table">
       <thead>
         <tr>
-          <th>#</th>
+          <th>Creator</th>
           <th>Poll Name</th>
           <th>Poll Description</th>
           <th>Date Created</th>

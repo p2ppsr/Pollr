@@ -54,7 +54,7 @@ export async function submitCreatePolls({
     outputs: [{
       lockingScript: OutputScript.toHex(),
       satoshis: 1,
-      basket: 'test1',
+      basket: 'myPolls',
       outputDescription: 'New Poll'
     }],
     options: {
@@ -122,7 +122,7 @@ export async function submitVote({
     outputs: [{
       lockingScript: OutputScript.toHex(),
       satoshis: 1,
-      basket: 'poll tokens',
+      basket: 'myVotes',
       outputDescription: `Vote Token for poll: ${poll.id} `
     }],
     options: {
@@ -449,7 +449,7 @@ export async function fetchMypolls() {
       identityKey: true
     })
     const pollFromBasket = await walletClient.listOutputs({
-      basket: 'test1',
+      basket: 'myPolls',
       include: 'entire transactions'
     })
     let localpolls: string[][] = []
