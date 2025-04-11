@@ -13,7 +13,7 @@ const App: React.FC = () => {
           Poll Management
         </Typography>
 
-        <Box sx={{ marginTop: "2em" }}>
+        <Box sx={{ margin: "2em 0" }}>
           <Grid container spacing={2} justifyContent="center">
             <Grid item>
               <Button variant="contained" color="primary" fullWidth component={Link} to="/active-polls">
