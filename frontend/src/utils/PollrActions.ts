@@ -1,6 +1,16 @@
 import { WalletClient, PushDrop, Utils, Transaction, type WalletOutput, CreateActionInput, IdentityClient, Beef, LookupResolver, TopicBroadcaster, SignActionSpend } from '@bsv/sdk'
 import { Option, PollQuery, Poll } from '../types/types'
 import { LookupQuestion } from '@bsv/overlay'
+/**
+ * Creates a new poll by locking poll information into a token.
+ * The poll metadata includes the poll name, description, type, options and a timestamp.
+ *
+ * @param pollName - The name of the poll
+ * @param pollDescription - The description of the poll
+ * @param optionsType - The type of options for the poll (e.g. text)
+ * @param options - An array of options for the poll
+ * @returns void
+ */
 export async function submitCreatePolls({
   pollName,
   pollDescription,
@@ -10,10 +20,9 @@ export async function submitCreatePolls({
     pollDescription: string,
     optionsType: string,
     options: Option[]
-  }):
-  Promise<string> {
+  }) {
   const walletClient = new WalletClient()
-  const pollCreator = await walletClient.getPublicKey({ identityKey: true });
+  const pollCreator = await walletClient.getPublicKey({ identityKey: true })
 
   const PD = new PushDrop(walletClient)
   const fields = [
@@ -45,7 +54,7 @@ export async function submitCreatePolls({
     outputs: [{
       lockingScript: OutputScript.toHex(),
       satoshis: 1,
-      basket: 'test',
+      basket: 'test1',
       outputDescription: 'New Poll'
     }],
     options: {
@@ -61,27 +70,30 @@ export async function submitCreatePolls({
   }
   const beef = tx.toBEEF()
 
-  console.log(`sending ${beef}`)
   const network = (await walletClient.getNetwork()).network
   const broadcaster = new TopicBroadcaster(['tm_pollr'], {
     networkPreset: location.hostname === 'localhost' ? 'local' : network
   })
   const broadcasterResult = await broadcaster.broadcast(tx)
-  console.log('broadcasterResult:', broadcasterResult)
   if (broadcasterResult.status === 'error') {
     throw new Error('Transaction failed to broadcast')
   }
-  return "parsedResponse"
 }
+/**
+ * Submits a vote for a given poll by locking the vote data into a vote token.
+ *
+ * @param poll - The poll object representing the poll to vote in
+ * @param index - The selected option index (as string) for the vote
+ * @returns void
+ */
 export async function submitVote({
   poll,
   index }: {
     poll: Poll
     index: string
-  }):
-  Promise<string> {
+  }){
   const walletClient = new WalletClient()
-  const pollCreator = await walletClient.getPublicKey({ identityKey: true });
+  const pollCreator = await walletClient.getPublicKey({ identityKey: true })
 
 
   const PD = new PushDrop(walletClient)
@@ -111,7 +123,7 @@ export async function submitVote({
       lockingScript: OutputScript.toHex(),
       satoshis: 1,
       basket: 'poll tokens',
-      outputDescription: 'New Poll'
+      outputDescription: `Vote Token for poll: ${poll.id} `
     }],
     options: {
       randomizeOutputs: false,
@@ -128,17 +140,21 @@ export async function submitVote({
     networkPreset: location.hostname === 'localhost' ? 'local' : network
   })
   const broadcasterResult = await broadcaster.broadcast(tx)
-  console.log('broadcasterResult:', broadcasterResult)
   if (broadcasterResult.status === 'error') {
     throw new Error('Transaction failed to broadcast')
   }
-  return "parsedResponse"
 }
-
+/**
+ * Closes a poll by aggregating all vote tokens, replacing poll metadata status to "close", and appending final vote counts.
+ *
+ * @param pollId - The unique identifier (transaction ID) of the poll to be closed
+ * @returns void
+ */
 export async function closePoll({
-  pollId }: {
-    pollId: string,
-  }): Promise<string> {
+  pollId
+}: {
+  pollId: string
+}) {
   const walletClient = new WalletClient()
   let query = {} as PollQuery
   query.txid = pollId
@@ -148,7 +164,9 @@ export async function closePoll({
   question.service = 'ls_pollr'
 
   const network = (await walletClient.getNetwork()).network
-  const resolver = new LookupResolver({ networkPreset: location.hostname === 'localhost' ? 'local' : network })
+  const resolver = new LookupResolver({
+    networkPreset: location.hostname === 'localhost' ? 'local' : network
+  })
   const lookupResult = await resolver.query(question)
 
   if (lookupResult.type !== 'output-list') {
@@ -158,34 +176,68 @@ export async function closePoll({
   let votes: string[][] = []
   for (const output of lookupResult.outputs) {
     const parsedTransaction = Transaction.fromBEEF(output.beef)
-    const decoded = PushDrop.decode(parsedTransaction.outputs[output.outputIndex].lockingScript)
+    const decoded = PushDrop.decode(
+      parsedTransaction.outputs[output.outputIndex].lockingScript
+    )
 
     const reader = new Utils.Reader(decoded.fields[0])
-    const decodedFields = []
+    const decodedFields: string[] = []
     while (!reader.eof()) {
       const fieldLength = reader.readVarIntNum()
       const fieldBytes = reader.read(fieldLength)
       decodedFields.push(Utils.toUTF8(fieldBytes))
     }
-    console.log(JSON.stringify(decodedFields))
     votes.push(decodedFields)
   }
+
+  // Initialize vote counts based on allowed poll options
   const voteCounts: Record<string, number> = {} as Record<string, number>
   const voteOptions = await getPollOptions(pollId)
   voteOptions.forEach(option => {
     voteCounts[option] = 0
   })
-  // Count the votes only for allowed options.
+
+  // Count the votes only for allowed options
   votes.forEach(vote => {
     const option = vote[3]
     if (option in voteCounts) {
       voteCounts[option] += 1
     }
   })
-  const voteCountsArray: Record<string, number>[] = voteOptions.map(option => ({ [option]: voteCounts[option] }))
+  const voteCountsArray: Record<string, number>[] = voteOptions.map(option => ({
+    [option]: voteCounts[option]
+  }))
 
+  // Retrieve the original (open) poll token to get poll information
+  let opentoken = await getPoll(pollId)
+  const decodedOpenToken = PushDrop.decode(opentoken.outputs[0].lockingScript)
+
+  // --- Modified part: Replace "open" with "close" and remove poll options from the metadata ---
+  // Decode all fields from the open token
+  const openReader = new Utils.Reader(decodedOpenToken.fields[0])
+  const openFields: Buffer[] = []
+  while (!openReader.eof()) {
+    const fieldLength = openReader.readVarIntNum()
+    const fieldBytes = openReader.read(fieldLength)
+    openFields.push(Buffer.from(fieldBytes))
+  }
+
+  // We only want the metadata (first 7 fields), so discard the options.
+  const metadataFields = openFields.slice(0, 7)
+
+  // Replace the first field "open" with "close"
+  if (metadataFields.length > 0) {
+    metadataFields[0] = Buffer.from("close", "utf8")
+  }
+
+  // Create a new writer and add the modified metadata fields
   const writer = new Utils.Writer()
+  for (const field of metadataFields) {
+    writer.writeVarIntNum(field.length)
+    writer.write(Array.from(field))
+  }
 
+  // Append the vote counts from the voteCountsArray
   for (const voteObj of voteCountsArray) {
     const key = Object.keys(voteObj)[0]
     const value = voteObj[key]
@@ -200,6 +252,8 @@ export async function closePoll({
   }
 
   const data = writer.toArray()
+
+  // Use the combined data to create the locking script for the close token
   const lockingScript = await new PushDrop(walletClient).lock(
     [data],
     [2, 'pollr'],
@@ -207,13 +261,13 @@ export async function closePoll({
     'self'
   )
 
-  let opentoken = await getPoll(pollId)
+  // Build inputs from the original open token and vote tokens
   const beefer = new Beef()
   const inputs: CreateActionInput[] = []
   inputs.push({
     outpoint: opentoken.id('hex') + '.0',
     unlockingScriptLength: 74,
-    inputDescription: 'voteToken'
+    inputDescription: 'openToken'
   })
   beefer.mergeBeef(opentoken.toAtomicBEEF())
   for (const vote of lookupResult.outputs) {
@@ -226,7 +280,6 @@ export async function closePoll({
     beefer.mergeBeef(vote.beef)
   }
 
-  console.log('computed votes', votes)
   const { signableTransaction } = await walletClient.createAction({
     description: `Closing token`,
     inputBEEF: beefer.toBinary(),
@@ -248,6 +301,7 @@ export async function closePoll({
   const pd = new PushDrop(walletClient)
   const spends: Record<number, SignActionSpend> = {}
 
+  // Sign the open token input
   let unlocker = pd.unlock(
     [2, 'pollr'],
     '1',
@@ -256,6 +310,7 @@ export async function closePoll({
   let unlockingScript = (await unlocker.sign(tx, 0)).toHex()
   spends[0] = { unlockingScript }
 
+  // Sign vote token inputs – note that we use each vote token’s associated key
   for (let i = 1; i < inputs.length; i++) {
     unlocker = pd.unlock(
       [2, 'pollr'],
@@ -268,18 +323,19 @@ export async function closePoll({
   const { tx: completedTx } = await walletClient.signAction({
     reference: signableTransaction.reference,
     spends,
-    options: {
-      // acceptDelayedBroadcast: false,
-      // randomizeOutputs: false
-    }
+    options: {}
   })
   const parsedCompletedTx = Transaction.fromAtomicBEEF(completedTx!)
   const broadcaster = new TopicBroadcaster(['tm_pollr'], {
     networkPreset: location.hostname === 'localhost' ? 'local' : network
   })
   await broadcaster.broadcast(parsedCompletedTx)
-  return 'pollresutls'
 }
+/**
+ * Fetches all open polls from the LS polling service.
+ *
+ * @returns A promise that resolves to an array of Poll objects representing all open polls.
+ */
 export async function fetchAllOpenPolls(): Promise<Poll[]> {
   let query = {} as PollQuery
   query.type = 'allpolls'
@@ -311,9 +367,7 @@ export async function fetchAllOpenPolls(): Promise<Poll[]> {
       decodedFields.push(Utils.toUTF8(fieldBytes))
     }
     decodedFields.push(parsedTransaction.id('hex'))
-    console.log(JSON.stringify(decodedFields))
     pollsData.push(decodedFields)
-
   }
   const polls: Poll[] = pollsData.map((row: string[]) => ({
     key: row[1],
@@ -323,10 +377,15 @@ export async function fetchAllOpenPolls(): Promise<Poll[]> {
     desc: row[3],
     date: row[6],
     status: row[0]
-  }));
+  }))
   return polls
 }
-
+/**
+ * Fetches vote tokens for an open poll and aggregates vote counts for allowed options.
+ *
+ * @param pollId - The unique identifier (transaction ID) of the poll
+ * @returns A promise that resolves to an array of records with each record mapping a poll option to its vote count
+ */
 export async function fetchOpenVotes(pollId: string): Promise<Record<string, number>[]> {
   let query = {} as PollQuery
   query.type = 'allvotesfor'
@@ -358,7 +417,6 @@ export async function fetchOpenVotes(pollId: string): Promise<Record<string, num
       const fieldBytes = reader.read(fieldLength)
       decodedFields.push(Utils.toUTF8(fieldBytes))
     }
-    console.log(JSON.stringify(decodedFields))
     votes.push(decodedFields)
   }
   const voteCounts: Record<string, number> = {} as Record<string, number>
@@ -378,7 +436,11 @@ export async function fetchOpenVotes(pollId: string): Promise<Record<string, num
 
   return voteCountsArray
 }
-
+/**
+ * Fetches polls created by the current user using the wallet's identity.
+ *
+ * @returns A promise that resolves to an array of formatted poll objects representing the user's polls.
+ */
 export async function fetchMypolls() {
   const walletClient = new WalletClient()
   let formattedPoll: {}[] = []
@@ -387,11 +449,9 @@ export async function fetchMypolls() {
       identityKey: true
     })
     const pollFromBasket = await walletClient.listOutputs({
-      basket: 'test',
+      basket: 'test1',
       include: 'entire transactions'
     })
-    console.log(`BEEF: ${JSON.stringify(pollFromBasket)}`)
-    const asciiStr = Buffer.from(pollFromBasket.BEEF!).toString('ascii');
     let localpolls: string[][] = []
     const polls = await Promise.all(pollFromBasket.outputs.map(async (task: WalletOutput, i: number) => {
       try {
@@ -407,8 +467,6 @@ export async function fetchMypolls() {
         }
         decodedFields.push(pollFromBasket.outputs[i].outpoint.split('.')[0])
         localpolls.push(decodedFields)
-        // console.log(`poll: ${JSON.stringify(decodedFields)}`)
-        // return decodedFields
       }
       catch (e) {
         console.log(`error decoding polls ${e}`)
@@ -425,7 +483,6 @@ export async function fetchMypolls() {
         desc: poll[3],
         date: poll[6],
       })
-      // console.log(parsedResponse.result.polls)
     }
   }
   catch (e) {
@@ -434,9 +491,14 @@ export async function fetchMypolls() {
   return formattedPoll
 
 }
+/**
+ * Retrieves all closed polls from the LS polling service.
+ *
+ * @returns A promise that resolves to an array of Poll objects representing closed polls.
+ */
 export async function getClosedPolls() {
   let query = {} as PollQuery
-  query.type = 'poll'
+  query.type = 'allpolls'
   query.status = "closed"
   let question = {} as LookupQuestion
   question.query = query
@@ -450,7 +512,6 @@ export async function getClosedPolls() {
   if (lookupResult.type !== 'output-list') {
     throw new Error('Lookup result type must be output-list')
   }
-
   const PD = new PushDrop(walletClient)
   let pollsData: string[][] = []
   for (const output of lookupResult.outputs) {
@@ -466,7 +527,6 @@ export async function getClosedPolls() {
       decodedFields.push(Utils.toUTF8(fieldBytes))
     }
     decodedFields.push(parsedTransaction.id('hex'))
-    console.log(JSON.stringify(decodedFields))
     pollsData.push(decodedFields)
   }
   const polls: Poll[] = pollsData.map((row: string[]) => ({
@@ -477,9 +537,15 @@ export async function getClosedPolls() {
     desc: row[3],
     date: row[6],
     status: row[0]
-  }));
+  }))
   return polls
 }
+/**
+ * Retrieves the poll options for an open poll.
+ *
+ * @param pollId - The unique identifier (transaction ID) of the poll
+ * @returns A promise that resolves to an array of strings representing the poll options.
+ */
 export async function getPollOptions(pollId: string): Promise<string[]> {
   let walletClient = new WalletClient()
   let query = {} as PollQuery
@@ -495,7 +561,6 @@ export async function getPollOptions(pollId: string): Promise<string[]> {
   if (lookupResult.type !== 'output-list') {
     throw new Error('Lookup result type must be output-list')
   }
-  // if (lookupResult.outputs)
   const parsedTransaction = Transaction.fromBEEF(lookupResult.outputs[0].beef)
   const decoded = PushDrop.decode(parsedTransaction.outputs[0].lockingScript)
 
@@ -506,10 +571,58 @@ export async function getPollOptions(pollId: string): Promise<string[]> {
     const fieldBytes = reader.read(fieldLength)
     decodedFields.push(Utils.toUTF8(fieldBytes))
   }
-  console.log(JSON.stringify(decodedFields.slice(7)))
 
   return decodedFields.slice(7)
 }
+/**
+ * Retrieves poll results for a closed poll by parsing vote counts from the closing token.
+ *
+ * @param pollId - The unique identifier (transaction ID) of the poll
+ * @returns A promise that resolves to an array of records mapping each poll option to its vote count.
+ */
+export async function getPollResults(pollId: string): Promise<Record<string, number>[]>{
+  let query = {} as PollQuery
+  query.type = 'allpolls'
+  query.status = 'closed'
+
+  query.txid = pollId
+  let question = {} as LookupQuestion
+  question.query = query
+  question.service = 'ls_pollr'
+  const walletClient = new WalletClient()
+
+  const network = (await walletClient.getNetwork()).network
+  const resolver = new LookupResolver({ networkPreset: location.hostname === 'localhost' ? 'local' : network })
+  const lookupResult = await resolver.query(question)
+
+  if (lookupResult.type !== 'output-list') {
+    throw new Error('Lookup result type must be output-list')
+  }
+  let parsedTransaction = Transaction.fromBEEF(lookupResult.outputs[0].beef)
+  const decoded = await PushDrop.decode(parsedTransaction.outputs[0].lockingScript)
+
+  const reader = new Utils.Reader(decoded.fields[0])
+  const decodedFields = []
+  while (!reader.eof()) {
+    const fieldLength = reader.readVarIntNum()
+    const fieldBytes = reader.read(fieldLength)
+    decodedFields.push(Utils.toUTF8(fieldBytes))
+  }
+  let resultingVotes: Record<string, number>[] = []
+  const results = decodedFields.slice(7)
+  for (let i = 0; i < results.length; i += 2) {
+    const option = results[i]
+    const count = Number(results[i + 1])
+    resultingVotes.push({ [option]: count })
+  }
+  return resultingVotes
+}
+/**
+ * Retrieves the open poll token (transaction) for the specified poll.
+ *
+ * @param pollId - The unique identifier (transaction ID) of the poll
+ * @returns A promise that resolves to a Transaction object representing the open poll token.
+ */
 export async function getPoll(pollId: string): Promise<Transaction> {
   let walletClient = new WalletClient()
   let query = {} as PollQuery
@@ -528,6 +641,12 @@ export async function getPoll(pollId: string): Promise<Transaction> {
 
   return Transaction.fromBEEF(lookupResult.outputs[0].beef)
 }
+/**
+ * Retrieves the avatar URL for a given identity key.
+ *
+ * @param identityKey - The identity key used for lookup
+ * @returns A promise that resolves to a string representing the avatar URL (or an empty string if not found)
+ */
 export async function getAvatar(identityKey: string): Promise<string> {
   let avatarUrl: string = ''
   let walletClient = new WalletClient()

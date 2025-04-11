@@ -43,7 +43,7 @@ if (loading) {
       polls={polls} 
       onPollAction={viewPoll} 
       title="My Polls" 
-      actionLabel="Close this poll"
+      actionLabel="Close this poll?"
     />
   )
 }

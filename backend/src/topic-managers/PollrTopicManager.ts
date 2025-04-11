@@ -32,6 +32,7 @@ export default class PollrTopicManager implements TopicManager {
                         pollQuery.txid = decodedFields[2].toString()
                         pollQuery.type = "poll"
                         pollQuery.status = "open"
+
                         let pollQuestion: LookupQuestion = {} as LookupQuestion
                         pollQuestion.query = pollQuery
                         pollQuestion.service = 'ls_pollr'
@@ -52,13 +53,12 @@ export default class PollrTopicManager implements TopicManager {
                         voteQuery.txid = decodedFields[2].toString()
                         voteQuery.type = "vote"
                         voteQuery.voterId = decodedFields[1].toString()
+                        
                         let question: LookupQuestion = {} as LookupQuestion
                         question.query = voteQuery
                         question.service = 'ls_pollr'
                         //check dups
-                        console.log(`checking dup ${JSON.stringify(voteQuery)}`)
                         const lookupResult = await resolver.query(question)
-                        console.log(`lookupResult: ${lookupResult}`)
                         if (lookupResult.type !== 'output-list') {
                             throw new Error('Bad lookup result')
                         }
@@ -66,20 +66,13 @@ export default class PollrTopicManager implements TopicManager {
                             throw new Error("dup vote.")
                         }
                     } else if (decodedFields[0] === "open") {
-                        console.log("tm Processing a poll opening...")
-                        console.log(`there are ${7 + Number(decodedFields[4])} inputs`)
-                        console.log(`there are ${decodedFields.length} inputs`)
                         if (Array.isArray(decodedFields) && decodedFields.length !== 7 + Number(decodedFields[4])) {
                             throw new Error('Open oken did not meet criteria.')
                         }
-                        console.log('tm poll added successfully to the database:\n%O', result)
                     } else if (decodedFields[0] === "close") {
-                        console.log("tm Processing a close...")
-                        if (Array.isArray(decodedFields) && decodedFields.length !== 4) {
+                        if (Array.isArray(decodedFields) && decodedFields.length !== 7 + 2 * Number(decodedFields[4])) {
                             throw new Error('close Token did not meet criteria.')
                         }
-                        console.log("tm Poll successfully closed...")
-
                     } else {
                         console.log("tm Invalid transaction type!")
                     }

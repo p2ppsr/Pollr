@@ -3,38 +3,62 @@ import PollsDisplay from "../utils/DisplayPolls"
 import { Poll } from "../types/types"
 import { styled } from '@mui/system'
 import {LinearProgress} from '@mui/material'
-import { getClosedPolls} from "../utils/PollrActions"
+import { getClosedPolls, getPollResults} from "../utils/PollrActions"
 const LoadingBar = styled(LinearProgress)({
   margin: '1em'
 })
 
+const fetchPollResults = async (poll: Poll): Promise<{ type: "completed"; data: string[]; winner: string }> => {
+  console.log(`fetching poll: ${poll.id}`)
+  let result: Record<string, number>[] = await getPollResults(poll.id)
+  const stringArray: string[] = result.map(record => {
+    const [option, count] = Object.entries(record)[0]
+    return `${option}: ${count}`
+  })
 
-const fetchPollResults = async (poll: Poll): Promise<{ type: "completed" ;data: string[]; winner: string }> => {
-  const pollResults: Record<string, Record<string, number>> = {
-  }
-  const results = pollResults[poll.id] || {}
-  const formattedResults = Object.entries(results).map(([choice, votes]) => `${choice}: ${votes} votes`)
+  let highestCount = -Infinity
+  let winnerOption = ""
+  result.forEach(record => {
+    const [option, count] = Object.entries(record)[0]
+    if (count > highestCount) {
+      highestCount = count
+      winnerOption = option
+    }
+  })
 
-  // Determine the winner by finding the option with the highest votes
-  const winner = Object.entries(results).reduce((max, entry) => (entry[1] > (results[max] || 0) ? entry[0] : max), "")
   return {
     type: "completed",
-    data: formattedResults,
-    winner: winner,
+    data: stringArray,
+    winner: winnerOption
   }
 }
-// export const vote = async (pollId: number): Promise<{ type: "open"; data: string[] }> => {
-//   let result: Record<string, number>[] = await fetchopenvotes(pollId.toString())
+
+// const fetchPollResults = async (poll: Poll): Promise<{ type: "completed" ;data: string[]; winner: string }> => {
+//   console.log(`fetching poll: ${poll.id}`)
+//   let result: Record<string, number>[] = await getPollResults(poll.id)
 //   const stringArray: string[] = result.map(record => {
-//     // Each record is assumed to have a single key-value pair.
 //     const [option, count] = Object.entries(record)[0]
 //     return `${option}: ${count}`
 //   })
 //   return {
-//     type: "open",
+//     type: "completed",
 //     data:stringArray,
 //   }
-// }//waiting till I can closed polls to test this
+// }
+// const fetchPollResults = async (poll: Poll): Promise<{ type: "completed" ;data: string[]; winner: string }> => {
+//   const pollResults: Record<string, Record<string, number>> = {
+//   }
+//   const results = pollResults[poll.id] || {}
+//   const formattedResults = Object.entries(results).map(([choice, votes]) => `${choice}: ${votes} votes`)
+
+//   // Determine the winner by finding the option with the highest votes
+//   const winner = Object.entries(results).reduce((max, entry) => (entry[1] > (results[max] || 0) ? entry[0] : max), "")
+//   return {
+//     type: "completed",
+//     data: formattedResults,
+//     winner: winner,
+//   }
+// }
 const CompletedPollsPage: React.FC = () => {
   const [polls, setPolls] = useState<Poll[]>([])
   const [loading, setLoading] = useState(true)

@@ -108,6 +108,7 @@ export default function PollsDisplay({
       setLoading(true)
       try{
         await closePoll({ pollId: selectedPoll.id })
+        window.location.reload()
         alert("Poll Closed")
       }catch{
         alert("Error closing poll.")

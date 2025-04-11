@@ -159,7 +159,6 @@ class PollrLookupService implements LookupService {
         const { type, txid, voterId, status } = question.query as PollQuery
         if (type === "vote") {
             cursor = await this.votes?.find({pollId: txid, walID: voterId }).toArray()
-            console.log(`found votes: ${cursor}`)
         }
         else if (type == "poll") {
             if(status == 'closed')
