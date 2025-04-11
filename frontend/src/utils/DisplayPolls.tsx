@@ -5,7 +5,8 @@ import { Poll } from "../types/types"
 import { Img } from "@bsv/uhrp-react"
 import { submitVote, closePoll } from "./PollrActions"
 import { styled } from '@mui/system'
-import {LinearProgress} from '@mui/material'
+import { LinearProgress } from '@mui/material'
+
 interface PollsListProps {
   polls: Poll[]
   onPollClick: (poll: Poll) => void
@@ -14,6 +15,7 @@ interface PollsListProps {
 const LoadingBar = styled(LinearProgress)({
   margin: '1em'
 })
+
 const PollsList: React.FC<PollsListProps> = ({ polls, onPollClick }) => {
   return (
     <table className="poll-table">
@@ -52,12 +54,13 @@ const PollsList: React.FC<PollsListProps> = ({ polls, onPollClick }) => {
 interface PollsDisplayProps {
   polls: Poll[]
   onPollAction: (
-   poll:Poll,
+    poll: Poll,
     choice?: string
   ) => Promise<{ type: "open" | "close" | "completed"; data: string[]; winner?: string }>
   actionLabel: string
   title: string
 }
+
 export default function PollsDisplay({
   polls,
   onPollAction,
@@ -72,6 +75,8 @@ export default function PollsDisplay({
   const [loading, setLoading] = useState(false)
   const [pollTitle, setPollTitle] = useState('')
   const [pollDescription, setDescription] = useState('')
+  const [searchTerm, setSearchTerm] = useState('') // State for the search term
+
   const handlePollClick = async (poll: Poll) => {
     setPollTitle(poll.name)
     setDescription(poll.desc)
@@ -96,29 +101,33 @@ export default function PollsDisplay({
         handlePollClick(selectedPoll)
         alert("Vote Success!")
       } catch (error: any) {
-        // Check if the error message indicates a duplicate vote
         alert("Error submitting vote. Duplicate votes are not allowed.")
       } finally {
         setLoading(false)
       }
     }
   }
+
   const handleClosePoll = async () => {
     if (selectedPoll) {
       setLoading(true)
-      try{
+      try {
         await closePoll({ pollId: selectedPoll.id })
         window.location.reload()
         alert("Poll Closed")
-      }catch{
+      } catch {
         alert("Error closing poll.")
-      }
-      finally{
+      } finally {
         setLoading(false)
       }
-
     }
   }
+
+  // Filter polls based on the search term (case-insensitive match on name or description)
+  const filteredPolls = polls.filter((poll) =>
+    poll.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    poll.desc.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
   // If data is being fetched, render only the loading bar
   if (loading) {
@@ -132,8 +141,20 @@ export default function PollsDisplay({
   return (
     <div className="poll-container">
       <h1 className="poll-title">{title}</h1>
+      {/* Show search bar only when no poll is selected */}
+      {!selectedPoll && (
+        <div className="search-bar-container">
+          <input
+            type="text"
+            placeholder="Search polls..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="search-bar"
+          />
+        </div>
+      )}
       {!selectedPoll ? (
-        <PollsList polls={polls} onPollClick={handlePollClick} />
+        <PollsList polls={filteredPolls} onPollClick={handlePollClick} />
       ) : (
         <div>
           <h2 className="poll-choice-title">{actionLabel}</h2>
