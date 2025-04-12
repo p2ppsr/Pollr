@@ -77,7 +77,7 @@ const NoMncModal: React.FC<NoMncModalProps> = ({ open, onClose }) => {
               <path d="M12 17C14.7614 17 17 14.7614 17 12C17 9.23858 14.7614 7 12 7C9.23858 7 7 9.23858 7 12C7 14.7614 9.23858 17 12 17Z" fill="#40E0D0"/>
             </svg>
           </Box>
-          <Typography id='modal-modal-title' variant='h5' component='h2' sx={{ fontWeight: 'bold' }}>
+          <Typography id='modal-modal-title' variant='h5' component='h2' sx={{ fontWeight: 'bold', color: 'white' }}>
             MetaNet Client Required
           </Typography>
         </Box>
