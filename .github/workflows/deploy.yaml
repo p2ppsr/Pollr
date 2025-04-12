@@ -24,4 +24,4 @@ jobs:
         run: cars build 1
 
       - name: Release artifact
-        run: cars --key ${{ secrets.CARS_PRIVATE_KEY }} release now 1
+        run: cars release now 1 --key "${{ secrets.CARS_PRIVATE_KEY }}"
