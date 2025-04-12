@@ -10,13 +10,13 @@ const App: React.FC = () => {
     <Router>
       <Container maxWidth="sm" style={{ marginTop: "2em" }}>
         <Typography variant="h4" component="h1" gutterBottom align="center">
-          Poll Management
+          Pollr
         </Typography>
 
         <Box sx={{ margin: "2em 0" }}>
           <Grid container spacing={2} justifyContent="center">
             <Grid item>
-              <Button variant="contained" color="primary" fullWidth component={Link} to="/active-polls">
+              <Button variant="contained" color="primary" fullWidth component={Link} to="/">
                 Active Polls
               </Button>
             </Grid>
@@ -25,7 +25,7 @@ const App: React.FC = () => {
                 Create Poll
               </Button>
             </Grid>
-              <Grid item>
+            <Grid item>
               <Button variant="contained" color="primary" fullWidth component={Link} to="/MyPolls">
                 My Polls
               </Button>
@@ -39,11 +39,11 @@ const App: React.FC = () => {
         </Box>
 
         <Routes>
-          <Route path="/active-polls" element={<ActivePollsPage />} />
+          <Route path="/" element={<ActivePollsPage />} />
           <Route path="/create-poll" element={<CreatePoll />} />
           <Route path="/MyPolls" element={<MyPolls />} />
           <Route path="/CompletedPolls" element={<CompletedPolls />} />
-          
+
         </Routes>
       </Container>
     </Router>
