@@ -1,51 +1,28 @@
-import React, { useEffect, useState } from "react"
-import PollsDisplay from "../utils/DisplayPolls"
-import {Poll} from "../types/types"
-import { fetchMypolls , fetchOpenVotes} from "../utils/PollrActions"
-import { styled } from '@mui/system'
-
-import {LinearProgress} from '@mui/material'
+import React, { useEffect, useState } from "react";
+import PollsList from "./PollsList";
+import { Poll } from "../types/types";
+import { fetchMypolls } from "../utils/PollrActions";
+import { LinearProgress } from "@mui/material";
+import { styled } from "@mui/system";
 
 const LoadingBar = styled(LinearProgress)({
-  margin: '1em'
-})
-
-const viewPoll = async (poll: Poll): Promise<{ type: "close" | "open" | "completed", data: string[] }> => {
-   let result: Record<string, number>[] = await fetchOpenVotes(poll.id)
-      const stringArray: string[] = result.map(record => {
-        // Each record is assumed to have a single key-value pair.
-        const [option, count] = Object.entries(record)[0]
-        return `${option}: ${count}`
-      })
-      return {
-        type: 'close',
-        data:stringArray,
-      }
-}
+  margin: "1em",
+});
 
 const MyPollsPage: React.FC = () => {
-  const [polls, setPolls] = useState<Poll[]>([])
-  const [loading, setLoading] = useState(true)
-  
+  const [polls, setPolls] = useState<Poll[]>([]);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     fetchMypolls().then((data) => {
-      setPolls(data as Poll[])
-      setLoading(false)
-    })
-  }, [])
-if (loading) {
-    return (
-     <LoadingBar></LoadingBar>
-    )
-  }
-  return (
-    <PollsDisplay 
-      polls={polls} 
-      onPollAction={viewPoll} 
-      title="My Polls" 
-      actionLabel="Close this poll?"
-    />
-  )
-}
+      setPolls(data as Poll[]);
+      setLoading(false);
+    });
+  }, []);
 
-export default MyPollsPage
+  if (loading) return <LoadingBar />;
+
+  return <PollsList polls={polls} title="My Polls" />;
+};
+
+export default MyPollsPage;
