@@ -7,12 +7,11 @@ import CreatePollForm from './components/CreatePollForm'
 import MyPollsPage from './components/MyPollsPage'
 import CompletedPollsPage from './components/CompletePollsPage'
 import PollDetailPage from './components/PollDetails'
-
-
 function App() {
   return (
     <Router>
-      <Container maxWidth="sm" style={{ marginTop: '2em' }}>
+      {/* The Container has extra bottom padding so content doesn't go under the footer */}
+      <Container maxWidth="sm" style={{ marginTop: '2em', paddingBottom: '80px' }}>
         <Typography variant="h4" component="h1" gutterBottom align="center">
           Pollr
         </Typography>
@@ -20,7 +19,7 @@ function App() {
         <Box sx={{ margin: '2em 0' }}>
           <Grid container spacing={2} justifyContent="center">
             <Grid item xs={3}>
-              <Button variant="contained" color="primary" fullWidth component={Link} to="/active-polls">
+              <Button variant="contained" color="primary" fullWidth component={Link} to="/">
                 Active Polls
               </Button>
             </Grid>
@@ -35,7 +34,7 @@ function App() {
               </Button>
             </Grid>
             <Grid item xs={3}>
-              <Button variant="contained" color="primary" fullWidth component={Link} to="/CompletedPolls"  style={{ whiteSpace: 'nowrap' }}>
+              <Button variant="contained" color="primary" fullWidth component={Link} to="/CompletedPolls" style={{ whiteSpace: 'nowrap' }}>
                 Completed Polls
               </Button>
             </Grid>
@@ -43,13 +42,29 @@ function App() {
         </Box>
 
         <Routes>
-          <Route path="/active-polls" element={<ActivePollsPage />} />
+          <Route path="/" element={<ActivePollsPage />} />
           <Route path="/create-poll" element={<CreatePollForm />} />
           <Route path="/MyPolls" element={<MyPollsPage />} />
           <Route path="/CompletedPolls" element={<CompletedPollsPage />} />
           <Route path="/poll/:pollId" element={<PollDetailPage />} />
         </Routes>
       </Container>
+
+      <footer style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        textAlign: 'center',
+        padding: '10px 0'
+      }}>
+        <Typography variant="body2" color="textSecondary">
+          Visit the code on{' '}
+          <a href="https://github.com/p2ppsr/Pollr" target="_blank" rel="noopener noreferrer">
+            GitHub
+          </a>
+        </Typography>
+      </footer>
     </Router>
   )
 }
