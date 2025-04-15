@@ -93,10 +93,10 @@ const PollDetailPage: React.FC = () => {
 
   // Conditionally set header and subheader text based on context
   let headerText = "Active Poll"
-  let subheaderText = "Vote for your choice"
+  let subheaderText = "Interim Results"
   if (actionType === "completed") {
     headerText = "Closed Poll"
-    subheaderText = "Final Votes"
+    subheaderText = "Final Results"
   }
 
   // Handle vote submission for open polls.
