@@ -1,6 +1,7 @@
 import { WalletClient, PushDrop, Utils, Transaction, type WalletOutput, CreateActionInput, IdentityClient, Beef, LookupResolver, TopicBroadcaster, SignActionSpend } from '@bsv/sdk'
 import { Option, PollQuery, Poll } from '../types/types'
 import { LookupQuestion } from '@bsv/overlay'
+import { json } from 'stream/consumers'
 /**
  * Creates a new poll by locking poll information into a token.
  * The poll metadata includes the poll name, description, type, options and a timestamp.
@@ -207,12 +208,11 @@ export async function closePoll({
   const voteCountsArray: Record<string, number>[] = voteOptions.map(option => ({
     [option]: voteCounts[option]
   }))
-
+  console.log(`${JSON.stringify(voteCountsArray)}`)
   // Retrieve the original (open) poll token to get poll information
   let opentoken = await getPoll(pollId)
   const decodedOpenToken = PushDrop.decode(opentoken.outputs[0].lockingScript)
 
-  // --- Modified part: Replace "open" with "close" and remove poll options from the metadata ---
   // Decode all fields from the open token
   const openReader = new Utils.Reader(decodedOpenToken.fields[0])
   const openFields: Buffer[] = []
@@ -376,7 +376,7 @@ export async function fetchAllOpenPolls(): Promise<Poll[]> {
     name: row[2],
     desc: row[3],
     date: row[6],
-    status: row[0]
+    status: 'open'
   }))
   return polls
 }
@@ -529,6 +529,7 @@ export async function getClosedPolls() {
     decodedFields.push(parsedTransaction.id('hex'))
     pollsData.push(decodedFields)
   }
+  console.log(`closed polls: ${JSON.stringify(pollsData)}`)
   const polls: Poll[] = pollsData.map((row: string[]) => ({
     key: row[1],
     avatarUrl: row[7],
@@ -536,8 +537,9 @@ export async function getClosedPolls() {
     name: row[2],
     desc: row[3],
     date: row[6],
-    status: row[0]
+    status: 'closed'
   }))
+  console.log(`closed returning polls: ${JSON.stringify(polls)}`)
   return polls
 }
 /**
@@ -582,7 +584,7 @@ export async function getPollOptions(pollId: string): Promise<string[]> {
  */
 export async function getPollResults(pollId: string): Promise<Record<string, number>[]>{
   let query = {} as PollQuery
-  query.type = 'allpolls'
+  query.type = 'poll'
   query.status = 'closed'
 
   query.txid = pollId
@@ -615,6 +617,7 @@ export async function getPollResults(pollId: string): Promise<Record<string, num
     const count = Number(results[i + 1])
     resultingVotes.push({ [option]: count })
   }
+  console.log(`${JSON.stringify(resultingVotes)}`)
   return resultingVotes
 }
 /**
