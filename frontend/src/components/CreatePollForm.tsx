@@ -1,113 +1,113 @@
-import React, { useState } from "react";
-import "./PollForm.css";
-import { submitCreatePolls } from "../utils/PollrActions";
-import { Option } from "../types/types";
-import { styled } from "@mui/system";
-import { LinearProgress } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import React, { useState } from "react"
+import "./PollForm.css"
+import { submitCreatePolls } from "../utils/PollrActions"
+import { Option } from "../types/types"
+import { styled } from "@mui/system"
+import { LinearProgress } from "@mui/material"
+import { useNavigate } from "react-router-dom"
 
 const LoadingBar = styled(LinearProgress)({
   margin: "1em",
-});
+})
 
 const CreatePollForm: React.FC = () => {
-  const [pollName, setPollName] = useState<string>("");
-  const [pollDescription, setPollDescription] = useState<string>("");
-  const [numberOfOptions, setNumberOfOptions] = useState<string>("2");
-  const [optionsType] = useState<"text" | "image">("text"); // adjust if you want to enable image type
-  const [options, setOptions] = useState<Option[]>([{ value: "" }, { value: "" }]);
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const [pollName, setPollName] = useState<string>("")
+  const [pollDescription, setPollDescription] = useState<string>("")
+  const [numberOfOptions, setNumberOfOptions] = useState<string>("2")
+  const [optionsType] = useState<"text" | "image">("text") // adjust if you want to enable image type
+  const [options, setOptions] = useState<Option[]>([{ value: "" }, { value: "" }])
+  const [loading, setLoading] = useState(false)
+  const navigate = useNavigate()
 
   const handleNumberOfOptionsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setNumberOfOptions(value);
-    const count = parseInt(value, 10);
+    const value = e.target.value
+    setNumberOfOptions(value)
+    const count = parseInt(value, 10)
     if (!isNaN(count) && count >= 2 && count <= 10) {
       setOptions((prevOptions) => {
-        const newOptions = [...prevOptions];
+        const newOptions = [...prevOptions]
         if (count > prevOptions.length) {
           for (let i = prevOptions.length; i < count; i++) {
-            newOptions.push({ value: "" });
+            newOptions.push({ value: "" })
           }
         } else {
-          newOptions.length = count;
+          newOptions.length = count
         }
-        return newOptions;
-      });
+        return newOptions
+      })
     }
-  };
+  }
 
   const handleNumberOfOptionsBlur = () => {
-    let count = parseInt(numberOfOptions, 10);
+    let count = parseInt(numberOfOptions, 10)
     if (isNaN(count) || count < 2) {
-      count = 2;
+      count = 2
     } else if (count > 10) {
-      count = 10;
+      count = 10
     }
-    setNumberOfOptions(count.toString());
+    setNumberOfOptions(count.toString())
     setOptions((prevOptions) => {
-      const newOptions = [...prevOptions];
+      const newOptions = [...prevOptions]
       if (count > prevOptions.length) {
         for (let i = prevOptions.length; i < count; i++) {
-          newOptions.push({ value: "" });
+          newOptions.push({ value: "" })
         }
       } else {
-        newOptions.length = count;
+        newOptions.length = count
       }
-      return newOptions;
-    });
-  };
+      return newOptions
+    })
+  }
 
   const handleOptionValueChange = (index: number, value: string) => {
-    const updatedOptions = [...options];
-    updatedOptions[index].value = value;
-    setOptions(updatedOptions);
-  };
+    const updatedOptions = [...options]
+    updatedOptions[index].value = value
+    setOptions(updatedOptions)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const count = parseInt(numberOfOptions, 10);
+    e.preventDefault()
+    const count = parseInt(numberOfOptions, 10)
     if (isNaN(count) || count < 2 || count > 10) {
-      alert("Please enter a valid number of options (between 2 and 10).");
-      return;
+      alert("Please enter a valid number of options (between 2 and 10).")
+      return
     }
-    const optionValues = options.map((option) => option.value.trim());
-    const uniqueValues = new Set(optionValues);
+    const optionValues = options.map((option) => option.value.trim())
+    const uniqueValues = new Set(optionValues)
     if (optionValues.some((value) => value === "")) {
-      alert("Options cannot be empty or contain only spaces.");
-      return;
+      alert("Options cannot be empty or contain only spaces.")
+      return
     }
     if (uniqueValues.size !== optionValues.length) {
-      alert("Duplicate options are not allowed. Please enter unique values.");
-      return;
+      alert("Duplicate options are not allowed. Please enter unique values.")
+      return
     }
-    setLoading(true);
+    setLoading(true)
     try {
       const createdPoll = await submitCreatePolls({
         pollName,
         pollDescription,
         optionsType,
         options,
-      });
-      alert("Poll Successfully Created!");
+      })
+      alert("Poll Successfully Created!")
       // Redirect to the poll's detail page so it's linkable.
-      // navigate(`/poll/${createdPoll.id}`);
+      // navigate(`/poll/${createdPoll.id}`)
     } catch (error) {
-      console.error("Error submitting poll:", error);
-      alert("Error submitting poll");
+      console.error("Error submitting poll:", error)
+      alert("Error submitting poll")
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
     // Reset form state
-    setPollName("");
-    setPollDescription("");
-    setNumberOfOptions("2");
-    setOptions([{ value: "" }, { value: "" }]);
-  };
+    setPollName("")
+    setPollDescription("")
+    setNumberOfOptions("2")
+    setOptions([{ value: "" }, { value: "" }])
+  }
 
   if (loading) {
-    return <LoadingBar />;
+    return <LoadingBar />
   }
 
   return (
@@ -161,7 +161,7 @@ const CreatePollForm: React.FC = () => {
                   handleOptionValueChange(
                     index,
                     URL.createObjectURL(e.target.files[0])
-                  );
+                  )
                 }
               }}
               required
@@ -173,7 +173,7 @@ const CreatePollForm: React.FC = () => {
         Create Poll
       </button>
     </form>
-  );
-};
+  )
+}
 
-export default CreatePollForm;
+export default CreatePollForm

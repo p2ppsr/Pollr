@@ -1,12 +1,12 @@
 // App.jsx
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { Typography, Container, Button, Box, Grid } from '@mui/material';
-import ActivePollsPage from './components/ActivePollsPage';
-import CreatePollForm from './components/CreatePollForm';
-import MyPollsPage from './components/MyPollsPage';
-import CompletedPollsPage from './components/CompletePollsPage';
-import PollDetailPage from './components/PollDetails';
+import React from 'react'
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
+import { Typography, Container, Button, Box, Grid } from '@mui/material'
+import ActivePollsPage from './components/ActivePollsPage'
+import CreatePollForm from './components/CreatePollForm'
+import MyPollsPage from './components/MyPollsPage'
+import CompletedPollsPage from './components/CompletePollsPage'
+import PollDetailPage from './components/PollDetails'
 
 
 function App() {
@@ -51,7 +51,7 @@ function App() {
         </Routes>
       </Container>
     </Router>
-  );
+  )
 }
 
-export default App;
+export default App

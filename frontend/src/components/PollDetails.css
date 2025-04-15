@@ -74,10 +74,11 @@ body {
   background-color: #f0f0f0;
 }
 
-/* Selected option styling */
 .poll-option.selected {
-  background-color: #ddd;
-  border-color: #bbb;
+  background-color: #e3f2fd;   /* Light blue background */
+  border: 2px solid #1976d2;   /* Blue border */
+  color: #1976d2;             /* Blue text */
+  font-weight: bold;
 }
 
 /* Button group: container for buttons */

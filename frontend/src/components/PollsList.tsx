@@ -1,24 +1,24 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Img } from "@bsv/uhrp-react"; // Adjust this import as needed
-import "./PollsList.css";
-import { Poll } from "../types/types";
-import { Typography } from "@mui/material";
+import React, { useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { Img } from "@bsv/uhrp-react" // Adjust this import as needed
+import "./PollsList.css"
+import { Poll } from "../types/types"
+import { Typography } from "@mui/material"
 
 interface PollsListProps {
-  polls: Poll[];
-  title: string;
+  polls: Poll[]
+  title: string
 }
 
 const PollsList: React.FC<PollsListProps> = ({ polls, title }) => {
-  const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState("");
+  const navigate = useNavigate()
+  const [searchTerm, setSearchTerm] = useState("")
 
   const filteredPolls = polls.filter(
     (poll) =>
       poll.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       poll.desc.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  )
 
   return (
     <div className="poll-container">
@@ -69,7 +69,7 @@ const PollsList: React.FC<PollsListProps> = ({ polls, title }) => {
         </tbody>
       </table>
     </div>
-  );
-};
+  )
+}
 
-export default PollsList;
+export default PollsList
