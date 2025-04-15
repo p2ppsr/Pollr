@@ -69,17 +69,17 @@ const PollDetailPage: React.FC = () => {
             let resultStrings: string[] = []
             console.log(`${JSON.stringify(res)}`)
             // If the response is an array with a single aggregated object with multiple keys
-            if (res.length === 1 && typeof res[0] === "object" && Object.keys(res[0]).length > 1) {
-              resultStrings = Object.entries(res[0]).map(
-                ([option, count]) => `${option}: ${count}`
-              )
-            } else {
+            // if (res.length === 1 && typeof res[0] === "object" && Object.keys(res[0]).length > 1) {
+            //   resultStrings = Object.entries(res[0]).map(
+            //     ([option, count]) => `${option}: ${count}`
+            //   )
+            // } else {
               // Otherwise, assume each record is a separate key/value pair
               resultStrings = res.map((record) => {
                 const [option, count] = Object.entries(record)[0]
                 return `${option}: ${count}`
               })
-            }
+            // }
             setResults(resultStrings)
           })
         }
@@ -166,7 +166,7 @@ const PollDetailPage: React.FC = () => {
             {results.map((result, index) => (
               <div
                 key={index}
-                className="poll-card"  // or a dedicated class for completed results
+                className="poll-card" 
               >
                 {result}
               </div>
