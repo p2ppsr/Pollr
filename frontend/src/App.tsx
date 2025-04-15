@@ -14,7 +14,7 @@ function App() {
     <Router>
       <Container maxWidth="sm" style={{ marginTop: '2em' }}>
         <Typography variant="h4" component="h1" gutterBottom align="center">
-          Poll Management
+          Pollr
         </Typography>
 
         <Box sx={{ margin: '2em 0' }}>
