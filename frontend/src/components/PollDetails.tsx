@@ -68,18 +68,10 @@ const PollDetailPage: React.FC = () => {
           return getPollResults(foundPoll.id).then((res) => {
             let resultStrings: string[] = []
             console.log(`${JSON.stringify(res)}`)
-            // If the response is an array with a single aggregated object with multiple keys
-            // if (res.length === 1 && typeof res[0] === "object" && Object.keys(res[0]).length > 1) {
-            //   resultStrings = Object.entries(res[0]).map(
-            //     ([option, count]) => `${option}: ${count}`
-            //   )
-            // } else {
-              // Otherwise, assume each record is a separate key/value pair
               resultStrings = res.map((record) => {
                 const [option, count] = Object.entries(record)[0]
                 return `${option}: ${count}`
               })
-            // }
             setResults(resultStrings)
           })
         }
@@ -100,14 +92,11 @@ const PollDetailPage: React.FC = () => {
   const isOwner = poll.key === currentUserId
 
   // Conditionally set header and subheader text based on context
-  let headerText = "Active Polls"
+  let headerText = "Active Poll"
   let subheaderText = "Vote for your choice"
   if (actionType === "completed") {
-    headerText = "Completed Polls"
+    headerText = "Closed Poll"
     subheaderText = "Final Votes"
-  } else if (actionType === "open" && isOwner) {
-    headerText = "My Polls"
-    subheaderText = "Close Poll"
   }
 
   // Handle vote submission for open polls.
@@ -150,7 +139,6 @@ const PollDetailPage: React.FC = () => {
 
   return (
     <div className="poll-detail-container">
-      {/* Render header and subheader based on context */}
       <div className="poll-detail-header">
         <h1>{headerText}</h1>
       </div>

@@ -21,7 +21,7 @@ export async function submitCreatePolls({
     pollDescription: string,
     optionsType: string,
     options: Option[]
-  }) {
+  }): Promise<string> {
   const walletClient = new WalletClient()
   const pollCreator = await walletClient.getPublicKey({ identityKey: true })
 
@@ -79,6 +79,7 @@ export async function submitCreatePolls({
   if (broadcasterResult.status === 'error') {
     throw new Error('Transaction failed to broadcast')
   }
+  return newPollToken.txid!
 }
 /**
  * Submits a vote for a given poll by locking the vote data into a vote token.

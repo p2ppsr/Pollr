@@ -91,8 +91,7 @@ const CreatePollForm: React.FC = () => {
         options,
       })
       alert("Poll Successfully Created!")
-      // Redirect to the poll's detail page so it's linkable.
-      // navigate(`/poll/${createdPoll.id}`)
+      navigate(`/poll/${createdPoll}`)
     } catch (error) {
       console.error("Error submitting poll:", error)
       alert("Error submitting poll")
