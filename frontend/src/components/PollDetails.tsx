@@ -39,7 +39,6 @@ const PollDetailPage: React.FC = () => {
       .catch(console.error)
   }, [])
 
-  // load poll + votes/results
   useEffect(() => {
     if (!pollId) return
     setLoading(true)
@@ -135,11 +134,15 @@ const PollDetailPage: React.FC = () => {
             {results.map((result, i) => {
               const [opt, cnt] = result.split(":")
               return (
-                <div key={i} className="poll-card">
+                <div
+                  key={i}
+                  className={`poll-card ${selectedChoice === result ? "selected" : ""}`}
+                  onClick={() => setSelectedChoice(result)}
+                >
                   {poll.optionstype === "UHRP" ? (
                     <>
                       <Img src={opt.trim()} style={{ width: '150px', height: '150px', objectFit: 'cover' }} />
-                      <div>{cnt.trim()}</div>
+                      <div>{cnt?.trim() || "0"}</div>
                     </>
                   ) : (
                     result
@@ -147,11 +150,12 @@ const PollDetailPage: React.FC = () => {
                 </div>
               )
             })}
+
           </div>
         ) : (
           <div className="poll-options">
             {results.map((result, i) => {
-              const [opt] = result.split(":")
+              const [opt, cnt] = result.split(":")
               return (
                 <div
                   key={i}
@@ -159,13 +163,17 @@ const PollDetailPage: React.FC = () => {
                   onClick={() => setSelectedChoice(result)}
                 >
                   {poll.optionstype === "UHRP" ? (
-                    <Img src={opt.trim()} style={{ width: '150px', height: '150px', objectFit: 'cover' }} />
+                    <>
+                      <Img src={opt.trim()} style={{ width: '150px', height: '150px', objectFit: 'cover' }} />
+                      <div>{cnt?.trim() || "0"}</div>
+                    </>
                   ) : (
                     result
                   )}
                 </div>
               )
             })}
+
           </div>
         )}
       </div>

@@ -171,25 +171,19 @@ const CreatePollForm: React.FC = () => {
     }
 
     setLoading(true)
-    setUploadProgress(0)
     
     try {
-      // Handle image uploads if type is UHRP
       if (optionsType === "UHRP") {
         const updatedOptions = [...options]
         
-        // Upload each file sequentially
         for (let i = 0; i < optionFiles.length; i++) {
           const file = optionFiles[i]
           if (file) {
             try {
-              // Update progress for visual feedback
               setUploadProgress(Math.round((i / optionFiles.length) * 50))
               
-              // Upload the file and get the UHRP URL
               const uhrpURL = await uploadFileToStorage(file)
               
-              // Update the option with the UHRP URL
               updatedOptions[i].value = uhrpURL
             } catch (error) {
               console.error(`Error uploading file for option ${i + 1}:`, error)
@@ -200,12 +194,9 @@ const CreatePollForm: React.FC = () => {
           }
         }
         
-        // Update all options with their UHRP URLs
         setOptions(updatedOptions)
-        setUploadProgress(75)
       }
 
-      // Final validation before submission
       const optionValues = options.map(opt => opt.value.trim())
       if (optionValues.some(val => val === "") || new Set(optionValues).size !== optionValues.length) {
         alert("Please ensure all options are valid and unique.")
@@ -213,9 +204,6 @@ const CreatePollForm: React.FC = () => {
         return
       }
 
-      // Submit the poll data
-      setUploadProgress(90)
-      debugger
       const createdPoll = await submitCreatePolls({
         pollName,
         pollDescription,
@@ -227,7 +215,6 @@ const CreatePollForm: React.FC = () => {
       alert("Poll Successfully Created!")
       navigate(`/poll/${createdPoll}`)
       
-      // Reset form after successful submission
       setPollName("")
       setPollDescription("")
       setNumberOfOptions("2")

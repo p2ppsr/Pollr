@@ -1,6 +1,6 @@
 import React, { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Img } from "@bsv/uhrp-react" 
+import { Img } from "@bsv/uhrp-react"
 import "./PollsList.css"
 import { Poll } from "../types/types"
 import { Typography } from "@mui/material"
@@ -55,11 +55,14 @@ const PollsList: React.FC<PollsListProps> = ({ polls, title }) => {
                   src={poll.avatarUrl || ""}
                   alt="Avatar"
                   style={{
-                    width: "100px",
-                    height: "auto",
-                    marginRight: "10px",
+                    width: "48px",
+                    height: "48px",
+                    objectFit: "cover",
+                    borderRadius: "50%",
+                    display: "block"
                   }}
                 />
+
               </td>
               <td>{poll.name}</td>
               <td>{poll.desc}</td>

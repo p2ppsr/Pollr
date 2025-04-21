@@ -75,11 +75,9 @@ export async function submitCreatePolls({
   const broadcaster = new TopicBroadcaster(['tm_pollr'], {
     networkPreset: location.hostname === 'localhost' ? 'local' : network
   })
-  debugger
 
   const broadcasterResult = await broadcaster.broadcast(tx)
   if (broadcasterResult.status === 'error') {
-    debugger
     throw new Error('Transaction failed to broadcast')
   }
   return newPollToken.txid!
@@ -373,16 +371,20 @@ export async function fetchAllOpenPolls(): Promise<Poll[]> {
     decodedFields.push(parsedTransaction.id('hex'))
     pollsData.push(decodedFields)
   }
-  const polls: Poll[] = pollsData.map((row: string[]) => ({
-    key: row[1],
-    avatarUrl: row[7],
-    id: row.pop()!.toString(),
-    name: row[2],
-    desc: row[3],
-    date: row[6],
-    status: 'open',
-    optionstype: row[5]
-  }))
+  
+  const polls: Poll[] = await Promise.all(
+    pollsData.map(async (row: string[]) => ({
+      key: row[1],
+      avatarUrl: await getAvatar(row[1]),
+      id: row.pop()!.toString(),
+      name: row[2],
+      desc: row[3],
+      date: row[6],
+      status: 'open',
+      optionstype: row[5],
+    }))
+  )
+  
   return polls
 }
 /**
@@ -482,7 +484,7 @@ export async function fetchMypolls() {
       let id = poll.pop()!
       formattedPoll.push({
         key: walID.publicKey,
-        avatarUrl: getAvatar(walID.publicKey),
+        avatarUrl: await getAvatar(walID.publicKey),
         id: id,
         name: poll[2],
         desc: poll[3],
@@ -536,16 +538,30 @@ export async function getClosedPolls() {
     pollsData.push(decodedFields)
   }
   console.log(`closed polls: ${JSON.stringify(pollsData)}`)
-  const polls: Poll[] = pollsData.map((row: string[]) => ({
-    key: row[1],
-    avatarUrl: row[7],
-    id: row.pop()!.toString(),
-    name: row[2],
-    desc: row[3],
-    date: row[6],
-    status: 'closed',
-    optionstype: row[5]
-  }))
+  // const polls: Poll[] = pollsData.map((row: string[]) => ({
+  //   key: row[1],
+  //   avatarUrl: row[7],
+  //   id: row.pop()!.toString(),
+  //   name: row[2],
+  //   desc: row[3],
+  //   date: row[6],
+  //   status: 'closed',
+  //   optionstype: row[5]
+  // }))
+  
+  const polls: Poll[] = await Promise.all(
+    pollsData.map(async (row: string[]) => ({
+      key: row[1],
+      avatarUrl: await getAvatar(row[1]),
+      id: row.pop()!.toString(),
+      name: row[2],
+      desc: row[3],
+      date: row[6],
+      status: 'closed',
+      optionstype: row[5],
+    }))
+  )
+  
   console.log(`closed returning polls: ${JSON.stringify(polls)}`)
   return polls
 }
