@@ -9,6 +9,7 @@ import {
   submitVote,
   closePoll,
 } from "../utils/PollrActions"
+import { Img } from "@bsv/uhrp-react"
 import { WalletClient } from '@bsv/sdk'
 
 import { Button, LinearProgress } from "@mui/material"
@@ -19,6 +20,7 @@ const LoadingBar = styled(LinearProgress)({
   margin: "1em",
 })
 const walletClient = new WalletClient()
+
 const PollDetailPage: React.FC = () => {
   const { pollId } = useParams<{ pollId: string }>()
   const navigate = useNavigate()
@@ -29,102 +31,79 @@ const PollDetailPage: React.FC = () => {
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string>("")
 
-  // Retrieve current user ID from walletClient on mount
+  // get current user
   useEffect(() => {
     walletClient
       .getPublicKey({ identityKey: true })
-      .then((result) => {
-        setCurrentUserId(result.publicKey)
-      })
-      .catch((error) => {
-        console.error("Error fetching current user public key", error)
-      })
+      .then((res) => setCurrentUserId(res.publicKey))
+      .catch(console.error)
   }, [])
 
+  // load poll + votes/results
   useEffect(() => {
     if (!pollId) return
     setLoading(true)
     Promise.all([fetchAllOpenPolls(), getClosedPolls()])
       .then(([openPolls, closedPolls]) => {
-        const foundPoll =
+        const found =
           openPolls.find((p) => p.id === pollId) ||
           closedPolls.find((p) => p.id === pollId)
-        if (!foundPoll) {
-          throw new Error("Poll not found")
-        }
-        setPoll(foundPoll)
-        if (foundPoll.status === "open") {
+        if (!found) throw new Error("Poll not found")
+        setPoll(found)
+        if (found.status === "open") {
           setActionType("open")
-          return fetchOpenVotes(foundPoll.id).then((votes) => {
-            const voteStrings = votes.map((record) => {
-              const [option, count] = Object.entries(record)[0]
-              return `${option}: ${count}`
-            })
-            setResults(voteStrings)
-          })
-        } else if (foundPoll.status === "closed") {
-          setActionType("completed")
-          console.log(`foundid: ${foundPoll.id}`)
-          return getPollResults(foundPoll.id).then((res) => {
-            let resultStrings: string[] = []
-            console.log(`${JSON.stringify(res)}`)
-              resultStrings = res.map((record) => {
-                const [option, count] = Object.entries(record)[0]
-                return `${option}: ${count}`
+          return fetchOpenVotes(found.id).then((votes) =>
+            setResults(
+              votes.map((r) => {
+                const [opt, cnt] = Object.entries(r)[0]
+                return `${opt}: ${cnt}`
               })
-            setResults(resultStrings)
-          })
+            )
+          )
+        } else {
+          setActionType("completed")
+          return getPollResults(found.id).then((res) =>
+            setResults(
+              res.map((r) => {
+                const [opt, cnt] = Object.entries(r)[0]
+                return `${opt}: ${cnt}`
+              })
+            )
+          )
         }
       })
-      .catch((error) => {
-        console.error("Error loading poll", error)
-      })
-      .finally(() => {
-        setLoading(false)
-      })
+      .catch(console.error)
+      .finally(() => setLoading(false))
   }, [pollId])
 
-  if (loading || !poll) {
-    return <LoadingBar />
-  }
+  if (loading || !poll) return <LoadingBar />
 
-  // Determine ownership
   const isOwner = poll.key === currentUserId
+  const headerText = actionType === "completed" ? "Closed Poll" : "Active Poll"
+  const subheaderText = actionType === "completed" ? "Final Results" : "Interim Results"
 
-  // Conditionally set header and subheader text based on context
-  let headerText = "Active Poll"
-  let subheaderText = "Interim Results"
-  if (actionType === "completed") {
-    headerText = "Closed Poll"
-    subheaderText = "Final Results"
-  }
-
-  // Handle vote submission for open polls.
   const handleConfirmVote = async () => {
-    if (!selectedChoice || !poll) return
+    if (!selectedChoice) return
     setLoading(true)
     try {
       const voteOption = selectedChoice.split(":")[0].trim()
       await submitVote({ poll, index: voteOption })
-      if (poll.status === "open") {
-        const votes = await fetchOpenVotes(poll.id)
-        const voteStrings = votes.map((record) => {
-          const [option, count] = Object.entries(record)[0]
-          return `${option}: ${count}`
+      const fresh = await fetchOpenVotes(poll.id)
+      setResults(
+        fresh.map((r) => {
+          const [opt, cnt] = Object.entries(r)[0]
+          return `${opt}: ${cnt}`
         })
-        setResults(voteStrings)
-      }
+      )
       alert("Vote Success!")
-    } catch (error: any) {
+    } catch {
       alert("Error submitting vote. Duplicate votes may not be allowed.")
     } finally {
       setLoading(false)
     }
   }
 
-  // Handle closing the poll.
   const handleClosePoll = async () => {
-    if (!poll) return
     setLoading(true)
     try {
       await closePoll({ pollId: poll.id })
@@ -143,48 +122,65 @@ const PollDetailPage: React.FC = () => {
         <h1>{headerText}</h1>
       </div>
       <div className="poll-detail-subheader">{subheaderText}</div>
+
       <div className="poll-detail-label">Poll name:</div>
       <div className="poll-detail-content">{poll.name}</div>
       <div className="poll-detail-label">Description:</div>
       <div className="poll-detail-content">{poll.desc}</div>
+
       <div className="poll-options">
         {actionType === "completed" ? (
           <div>
             <h3>Final Poll Results:</h3>
-            {results.map((result, index) => (
-              <div
-                key={index}
-                className="poll-card" 
-              >
-                {result}
-              </div>
-            ))}
+            {results.map((result, i) => {
+              const [opt, cnt] = result.split(":")
+              return (
+                <div key={i} className="poll-card">
+                  {poll.optionstype === "UHRP" ? (
+                    <>
+                      <Img src={opt.trim()} style={{ width: '150px', height: '150px', objectFit: 'cover' }} />
+                      <div>{cnt.trim()}</div>
+                    </>
+                  ) : (
+                    result
+                  )}
+                </div>
+              )
+            })}
           </div>
         ) : (
           <div className="poll-options">
-            {results.map((result, index) => (
-              <div
-                key={index}
-                className={`poll-option ${selectedChoice === result ? "selected" : ""}`}
-                onClick={() => setSelectedChoice(result)}
-              >
-                {result}
-              </div>
-            ))}
+            {results.map((result, i) => {
+              const [opt] = result.split(":")
+              return (
+                <div
+                  key={i}
+                  className={`poll-option ${selectedChoice === result ? "selected" : ""}`}
+                  onClick={() => setSelectedChoice(result)}
+                >
+                  {poll.optionstype === "UHRP" ? (
+                    <Img src={opt.trim()} style={{ width: '150px', height: '150px', objectFit: 'cover' }} />
+                  ) : (
+                    result
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
+
       <div className="button-group">
-        <Button className="button-back" variant="contained" onClick={() => navigate(-1)}>
+        <Button variant="contained" onClick={() => navigate(-1)}>
           Back
         </Button>
         {actionType === "open" && selectedChoice && (
-          <Button className="button-vote" variant="contained" onClick={handleConfirmVote}>
+          <Button variant="contained" onClick={handleConfirmVote}>
             Vote
           </Button>
         )}
         {isOwner && actionType === "open" && (
-          <Button className="button-close" variant="contained" onClick={handleClosePoll}>
+          <Button variant="contained" onClick={handleClosePoll}>
             Close Poll
           </Button>
         )}

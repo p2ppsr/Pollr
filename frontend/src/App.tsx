@@ -1,4 +1,3 @@
-// App.jsx
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
 import { Typography, Container, Button, Box, Grid } from '@mui/material'
@@ -10,7 +9,6 @@ import PollDetailPage from './components/PollDetails'
 function App() {
   return (
     <Router>
-      {/* The Container has extra bottom padding so content doesn't go under the footer */}
       <Container maxWidth="sm" style={{ marginTop: '2em', paddingBottom: '80px' }}>
         <Typography variant="h4" component="h1" gutterBottom align="center">
           Pollr

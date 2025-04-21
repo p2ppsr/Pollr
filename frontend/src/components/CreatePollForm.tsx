@@ -5,18 +5,24 @@ import { Option } from "../types/types"
 import { styled } from "@mui/system"
 import { LinearProgress } from "@mui/material"
 import { useNavigate } from "react-router-dom"
+import { StorageUploader,WalletClient } from "@bsv/sdk"
 
 const LoadingBar = styled(LinearProgress)({
-  margin: "1em",
+  margin: "1em"
 })
+
+const STORAGE_URL = "https://nanostore.babbage.systems"
+const HOSTING_MINUTES = 525600 // Default: ~1 year
 
 const CreatePollForm: React.FC = () => {
   const [pollName, setPollName] = useState<string>("")
   const [pollDescription, setPollDescription] = useState<string>("")
   const [numberOfOptions, setNumberOfOptions] = useState<string>("2")
-  const [optionsType] = useState<"text" | "image">("text") // adjust if you want to enable image type
+  const [optionsType, setOptionsType] = useState<"text" | "UHRP" | "UHRPlink">("text")
   const [options, setOptions] = useState<Option[]>([{ value: "" }, { value: "" }])
-  const [loading, setLoading] = useState(false)
+  const [optionFiles, setOptionFiles] = useState<(File | null)[]>([null, null])
+  const [loading, setLoading] = useState<boolean>(false)
+  const [uploadProgress, setUploadProgress] = useState<number>(0)
   const navigate = useNavigate()
 
   const handleNumberOfOptionsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -24,10 +30,10 @@ const CreatePollForm: React.FC = () => {
     setNumberOfOptions(value)
     const count = parseInt(value, 10)
     if (!isNaN(count) && count >= 2 && count <= 10) {
-      setOptions((prevOptions) => {
-        const newOptions = [...prevOptions]
-        if (count > prevOptions.length) {
-          for (let i = prevOptions.length; i < count; i++) {
+      setOptions(prev => {
+        const newOptions = [...prev]
+        if (count > prev.length) {
+          for (let i = prev.length; i < count; i++) {
             newOptions.push({ value: "" })
           }
         } else {
@@ -35,21 +41,33 @@ const CreatePollForm: React.FC = () => {
         }
         return newOptions
       })
+      if (optionsType !== "text") {
+        setOptionFiles(prev => {
+          const newFiles = [...prev]
+          if (count > prev.length) {
+            for (let i = prev.length; i < count; i++) {
+              newFiles.push(null)
+            }
+          } else {
+            newFiles.length = count
+          }
+          return newFiles
+        })
+      }
     }
   }
 
   const handleNumberOfOptionsBlur = () => {
     let count = parseInt(numberOfOptions, 10)
-    if (isNaN(count) || count < 2) {
+    if (isNaN(count) || count < 2)
       count = 2
-    } else if (count > 10) {
+    else if (count > 10)
       count = 10
-    }
     setNumberOfOptions(count.toString())
-    setOptions((prevOptions) => {
-      const newOptions = [...prevOptions]
-      if (count > prevOptions.length) {
-        for (let i = prevOptions.length; i < count; i++) {
+    setOptions(prev => {
+      const newOptions = [...prev]
+      if (count > prev.length) {
+        for (let i = prev.length; i < count; i++) {
           newOptions.push({ value: "" })
         }
       } else {
@@ -57,12 +75,65 @@ const CreatePollForm: React.FC = () => {
       }
       return newOptions
     })
+    if (optionsType !== "text") {
+      setOptionFiles(prev => {
+        const newFiles = [...prev]
+        if (count > prev.length) {
+          for (let i = prev.length; i < count; i++) {
+            newFiles.push(null)
+          }
+        } else {
+          newFiles.length = count
+        }
+        return newFiles
+      })
+    }
   }
 
   const handleOptionValueChange = (index: number, value: string) => {
     const updatedOptions = [...options]
     updatedOptions[index].value = value
     setOptions(updatedOptions)
+  }
+
+  const handleOptionFileChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files && e.target.files[0] ? e.target.files[0] : null
+    setOptionFiles(prev => {
+      const newFiles = [...prev]
+      newFiles[index] = file
+      return newFiles
+    })
+  }
+
+  const uploadFileToStorage = async (file: File) => {
+    try {
+      const wallet = new WalletClient()
+      const storageUploader = new StorageUploader({
+        storageURL: STORAGE_URL,
+        wallet
+      })
+
+      // Read file into an ArrayBuffer
+      const fileArrayBuffer = await file.arrayBuffer()
+      if (!fileArrayBuffer) {
+        throw new Error("Could not read file array buffer.")
+      }
+      
+      // Turn the array buffer into a normal number array
+      const data = Array.from(new Uint8Array(fileArrayBuffer))
+      const uploadableFile = { data, size: data.length, type: file.type }
+
+      // Publish the file using the StorageUploader
+      const uploadResult = await storageUploader.publishFile({
+        file: uploadableFile,
+        retentionPeriod: HOSTING_MINUTES
+      })
+
+      return uploadResult.uhrpURL
+    } catch (error) {
+      console.error("Error uploading file:", error)
+      throw error
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -72,41 +143,104 @@ const CreatePollForm: React.FC = () => {
       alert("Please enter a valid number of options (between 2 and 10).")
       return
     }
-    const optionValues = options.map((option) => option.value.trim())
-    const uniqueValues = new Set(optionValues)
-    if (optionValues.some((value) => value === "")) {
-      alert("Options cannot be empty or contain only spaces.")
-      return
+    
+    // Validate options based on type
+    if (optionsType === "text") {
+      const optionValues = options.map(opt => opt.value.trim())
+      if (optionValues.some(val => val === "")) {
+        alert("Options cannot be empty or contain only spaces.")
+        return
+      }
+      if (new Set(optionValues).size !== optionValues.length) {
+        alert("Duplicate options are not allowed. Please enter unique values.")
+        return
+      }
+    } else if (optionsType === "UHRP") {
+      for (let i = 0; i < options.length; i++) {
+        if (!optionFiles[i]) {
+          alert(`Please select an image for option ${i + 1}.`)
+          return
+        }
+      }
+    } else if (optionsType === "UHRPlink") {
+      const optionValues = options.map(opt => opt.value.trim())
+      if (optionValues.some(val => val === "")) {
+        alert("Please fill every option with a UHRP link.")
+        return
+      }
     }
-    if (uniqueValues.size !== optionValues.length) {
-      alert("Duplicate options are not allowed. Please enter unique values.")
-      return
-    }
+
     setLoading(true)
+    setUploadProgress(0)
+    
     try {
+      // Handle image uploads if type is UHRP
+      if (optionsType === "UHRP") {
+        const updatedOptions = [...options]
+        
+        // Upload each file sequentially
+        for (let i = 0; i < optionFiles.length; i++) {
+          const file = optionFiles[i]
+          if (file) {
+            try {
+              // Update progress for visual feedback
+              setUploadProgress(Math.round((i / optionFiles.length) * 50))
+              
+              // Upload the file and get the UHRP URL
+              const uhrpURL = await uploadFileToStorage(file)
+              
+              // Update the option with the UHRP URL
+              updatedOptions[i].value = uhrpURL
+            } catch (error) {
+              console.error(`Error uploading file for option ${i + 1}:`, error)
+              alert(`Failed to upload image for option ${i + 1}. Please try again.`)
+              setLoading(false)
+              return
+            }
+          }
+        }
+        
+        // Update all options with their UHRP URLs
+        setOptions(updatedOptions)
+        setUploadProgress(75)
+      }
+
+      // Final validation before submission
+      const optionValues = options.map(opt => opt.value.trim())
+      if (optionValues.some(val => val === "") || new Set(optionValues).size !== optionValues.length) {
+        alert("Please ensure all options are valid and unique.")
+        setLoading(false)
+        return
+      }
+
+      // Submit the poll data
+      setUploadProgress(90)
+      debugger
       const createdPoll = await submitCreatePolls({
         pollName,
         pollDescription,
         optionsType,
-        options,
+        options: options.map(opt => ({ value: opt.value.trim() }))
       })
+      
+      setUploadProgress(100)
       alert("Poll Successfully Created!")
       navigate(`/poll/${createdPoll}`)
+      
+      // Reset form after successful submission
+      setPollName("")
+      setPollDescription("")
+      setNumberOfOptions("2")
+      setOptions([{ value: "" }, { value: "" }])
+      setOptionFiles([null, null])
+      
     } catch (error) {
       console.error("Error submitting poll:", error)
       alert("Error submitting poll")
     } finally {
       setLoading(false)
+      setUploadProgress(0)
     }
-    // Reset form state
-    setPollName("")
-    setPollDescription("")
-    setNumberOfOptions("2")
-    setOptions([{ value: "" }, { value: "" }])
-  }
-
-  if (loading) {
-    return <LoadingBar />
   }
 
   return (
@@ -117,7 +251,7 @@ const CreatePollForm: React.FC = () => {
         <input
           type="text"
           value={pollName}
-          onChange={(e) => setPollName(e.target.value)}
+          onChange={e => setPollName(e.target.value)}
           required
         />
       </div>
@@ -125,7 +259,7 @@ const CreatePollForm: React.FC = () => {
         <label>Poll Description:</label>
         <textarea
           value={pollDescription}
-          onChange={(e) => setPollDescription(e.target.value)}
+          onChange={e => setPollDescription(e.target.value)}
           required
         />
       </div>
@@ -141,34 +275,71 @@ const CreatePollForm: React.FC = () => {
           required
         />
       </div>
+      <div className="form-group">
+        <label>Options Type:</label>
+        <select
+          value={optionsType}
+          onChange={e => setOptionsType(e.target.value as "text" | "UHRP" | "UHRPlink")}
+        >
+          <option value="text">Text</option>
+          <option value="UHRP">UHRP (Upload Image)</option>
+          <option value="UHRPlink">UHRP Link</option>
+        </select>
+      </div>
       {options.map((option, index) => (
         <div className="form-group" key={index}>
-          <label>{`Option ${index + 1} (${optionsType}):`}</label>
+          <label>
+            {`Option ${index + 1} (${
+              optionsType === "text"
+                ? "Text"
+                : optionsType === "UHRP"
+                ? "Image Upload"
+                : "UHRP Link"
+            }) :`}
+          </label>
           {optionsType === "text" ? (
             <input
               type="text"
               value={option.value}
-              onChange={(e) => handleOptionValueChange(index, e.target.value)}
+              onChange={e => handleOptionValueChange(index, e.target.value)}
+              required
+            />
+          ) : optionsType === "UHRPlink" ? (
+            <input
+              type="text"               
+              placeholder="XUUVZqvzYskUvEXAMPLE-UHRPoAUojQcxDr6hTUwEz1vPLdvc64z"
+              value={option.value}
+              onChange={e => handleOptionValueChange(index, e.target.value)}
               required
             />
           ) : (
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => {
-                if (e.target.files && e.target.files[0]) {
-                  handleOptionValueChange(
-                    index,
-                    URL.createObjectURL(e.target.files[0])
-                  )
-                }
-              }}
-              required
-            />
+            <div>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={e => handleOptionFileChange(index, e)}
+                required
+              />
+              {optionFiles[index] && (
+                <p style={{ color: "black" }}>Selected file: {optionFiles[index]?.name}</p>
+              )}
+            </div>
           )}
         </div>
       ))}
-      <button type="submit" className="submit-button">
+      
+      {loading && (
+        <div className="progress-container">
+          <LinearProgress 
+            variant={uploadProgress === 0 ? "indeterminate" : "determinate"} 
+            value={uploadProgress}
+            sx={{ height: 6, borderRadius: 3, margin: "1em 0" }}
+          />
+          <p>Uploading files and creating poll...</p>
+        </div>
+      )}
+      
+      <button type="submit" className="submit-button" disabled={loading}>
         Create Poll
       </button>
     </form>

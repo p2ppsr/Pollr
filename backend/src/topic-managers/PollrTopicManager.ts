@@ -26,7 +26,7 @@ export default class PollrTopicManager implements TopicManager {
                     }
                     if (decodedFields[0] === "vote") {
                         if (Array.isArray(decodedFields) && decodedFields.length !== 4) {
-                            throw new Error('Token did not meet criteria.')
+                            throw new Error('Vote token did not meet criteria.')
                         }
                         let pollQuery: PollQuery = {} as PollQuery
                         pollQuery.txid = decodedFields[2].toString()
@@ -53,7 +53,7 @@ export default class PollrTopicManager implements TopicManager {
                         voteQuery.txid = decodedFields[2].toString()
                         voteQuery.type = "vote"
                         voteQuery.voterId = decodedFields[1].toString()
-                        
+
                         let question: LookupQuestion = {} as LookupQuestion
                         question.query = voteQuery
                         question.service = 'ls_pollr'
@@ -69,6 +69,22 @@ export default class PollrTopicManager implements TopicManager {
                         if (Array.isArray(decodedFields) && decodedFields.length !== 7 + Number(decodedFields[4])) {
                             throw new Error('Open oken did not meet criteria.')
                         }
+                        // if (decodedFields[5] == "UHRP") {
+                        //     const lookupResolver = new LookupResolver({ networkPreset: 'mainnet' })
+                        //     for (let i = 0; i < Number(decodedFields[4]); i++) {
+                        //         let uhrp = decodedFields[7 + i]
+                        //         const lookupResult = await lookupResolver.query({
+                        //             service: 'ls_uhrp',
+                        //             query: { uhrpUrl: uhrp }
+                        //         })
+                        //         if (lookupResult.type !== 'output-list') {
+                        //             throw new Error('Bad lookup result')
+                        //         }
+                        //         if (!lookupResult || lookupResult.outputs.length < 0) {
+                        //             throw new Error("Invalid UHRP")
+                        //         }
+                        //     }
+                        // }
                     } else if (decodedFields[0] === "close") {
                         if (Array.isArray(decodedFields) && decodedFields.length !== 7 + 2 * Number(decodedFields[4])) {
                             throw new Error('close Token did not meet criteria.')

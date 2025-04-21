@@ -1,6 +1,6 @@
 import React, { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Img } from "@bsv/uhrp-react" // Adjust this import as needed
+import { Img } from "@bsv/uhrp-react" 
 import "./PollsList.css"
 import { Poll } from "../types/types"
 import { Typography } from "@mui/material"

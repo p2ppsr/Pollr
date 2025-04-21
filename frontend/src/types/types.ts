@@ -6,6 +6,7 @@ export interface Poll {
   desc: string
   date: string
   status?: string
+  optionstype?: string
 }
 export interface OptionResults {
   optionText: string

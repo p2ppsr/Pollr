@@ -75,8 +75,11 @@ export async function submitCreatePolls({
   const broadcaster = new TopicBroadcaster(['tm_pollr'], {
     networkPreset: location.hostname === 'localhost' ? 'local' : network
   })
+  debugger
+
   const broadcasterResult = await broadcaster.broadcast(tx)
   if (broadcasterResult.status === 'error') {
+    debugger
     throw new Error('Transaction failed to broadcast')
   }
   return newPollToken.txid!
@@ -377,7 +380,8 @@ export async function fetchAllOpenPolls(): Promise<Poll[]> {
     name: row[2],
     desc: row[3],
     date: row[6],
-    status: 'open'
+    status: 'open',
+    optionstype: row[5]
   }))
   return polls
 }
@@ -483,6 +487,7 @@ export async function fetchMypolls() {
         name: poll[2],
         desc: poll[3],
         date: poll[6],
+        optionstype: poll[5]
       })
     }
   }
@@ -538,7 +543,8 @@ export async function getClosedPolls() {
     name: row[2],
     desc: row[3],
     date: row[6],
-    status: 'closed'
+    status: 'closed',
+    optionstype: row[5]
   }))
   console.log(`closed returning polls: ${JSON.stringify(polls)}`)
   return polls
