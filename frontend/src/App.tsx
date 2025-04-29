@@ -1,4 +1,3 @@
-// src/App.tsx
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
@@ -9,8 +8,6 @@ import {
   CssBaseline,
   Container
 } from '@mui/material'
-
-// Create a dark‐mode MUI theme
 const darkTheme = createTheme({ palette: { mode: 'dark' } })
 
 const App: React.FC = () => (
