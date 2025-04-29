@@ -16,7 +16,8 @@
     "noEmit": false,
     "jsx": "react-jsx",
     "sourceMap": true,
-    "outDir": "./dist"
+    "outDir": "./dist",
   },
-  "include": ["src", "src/types"]
+  "include": ["src", "src/types",
+  "src/types/pollr-react.d.ts"]
 }
