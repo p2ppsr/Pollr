@@ -1,9 +1,12 @@
-import { LookupService, LookupQuestion, LookupAnswer, LookupFormula } from '@bsv/overlay'
-import { Script, PushDrop, Utils } from '@bsv/sdk'
-import { MongoClient, Collection, Db } from 'mongodb'
+import { LookupService, LookupQuestion, LookupAnswer, LookupFormula, AdmissionMode, SpendNotificationMode, OutputAdmittedByTopic, OutputSpent } from '@bsv/overlay'
+import { PushDrop, Utils } from '@bsv/sdk'
+import { Collection, Db } from 'mongodb'
 import { PollQuery } from '../types.js'
 
 class PollrLookupService implements LookupService {
+    readonly admissionMode: AdmissionMode = 'locking-script'
+    readonly spendNotificationMode: SpendNotificationMode = 'none'
+
     constructor(private db: Db) {
         this.votes = this.db.collection('pollrvote')
         this.closes = this.db.collection('pollrclose')
@@ -23,19 +26,16 @@ class PollrLookupService implements LookupService {
         }
         return true
     }
-    async outputAdded?(
-        txid: string,
-        outputIndex: number,
-        outputScript: Script,
-        topic: string
-    ): Promise<void> {
+    async outputAdmittedByTopic(payload: OutputAdmittedByTopic): Promise<void> {
+        if (payload.mode !== 'locking-script') throw new Error('Invalid mode')
+        const { topic, lockingScript, txid, outputIndex } = payload
         if (topic !== 'tm_pollr') {
             return
         }
         this.onTopic(topic)
         try {
-            const decodedOutput = await PushDrop.decode(outputScript)
-            console.log(`outputScript" ${outputScript.toHex()}, txid: ${txid}`)
+            const decodedOutput = await PushDrop.decode(lockingScript)
+            console.log(`outputScript" ${lockingScript.toHex()}, txid: ${txid}`)
             let result
             const reader = new Utils.Reader(decodedOutput.fields[0])
             const decodedFields = []
@@ -95,11 +95,9 @@ class PollrLookupService implements LookupService {
      * Processes when a vote or poll is spent (used).
      * If a poll is closed, update its status.
      */
-    async outputSpent(
-        txid: string,
-        outputIndex: number,
-        topic: string):
-        Promise<void> {
+    async outputSpent(payload: OutputSpent): Promise<void> {
+        if (payload.mode !== 'none') throw new Error('Invalid mode')
+        const { topic, txid, outputIndex } = payload
             if (topic !== 'tm_pollr') {
                 return
             }
@@ -116,22 +114,11 @@ class PollrLookupService implements LookupService {
             console.error("Error deleting from collections:", error)
         }
     }
-    /**
-     * Processes when a UTXO is deleted.
-     */
 
-    async outputDeleted(
+    async outputEvicted(
         txid: string,
-        outputIndex: number,
-        topic: string):
+        outputIndex: number):
         Promise<void> {
-            if (topic !== 'tm_pollr') {
-                return
-            }
-        console.log(`Received spend notification for TXID: ${txid}, Output Index: ${outputIndex}.`)
-
-        this.onTopic(topic)
-
         try {
             const collections = await this.db.listCollections().toArray() || []
             for (const collection of collections) {
