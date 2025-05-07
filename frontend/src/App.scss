@@ -1,3 +1,20 @@
 a {
   color:lightseagreen
 }
+
+.poll-title {
+  display: none !important;
+}
+
+/* Hide redundant heading inside Pollr component */
+.poll-container > h1,
+.poll-container > h2,
+.poll-container > .MuiTypography-root {
+  display: none !important;
+}
+
+/* Hide Pollr default heading */
+.MuiTypography-h5,
+.MuiTypography-h4 {
+  display: none !important;
+}
