@@ -45,7 +45,7 @@
   },
   "dependencies": {
     "@bsv/overlay": "^0.2.1",
-    "@bsv/sdk": "^1.4.15",
+    "@bsv/sdk": "^1.5.2",
     "knex": "^3.1.0",
     "mongodb": "^6.11.0"
   }
