@@ -98,9 +98,9 @@ class PollrLookupService implements LookupService {
     async outputSpent(payload: OutputSpent): Promise<void> {
         if (payload.mode !== 'none') throw new Error('Invalid mode')
         const { topic, txid, outputIndex } = payload
-            if (topic !== 'tm_pollr') {
-                return
-            }
+        if (topic !== 'tm_pollr') {
+            return
+        }
         this.onTopic(topic)
 
         try {
@@ -134,7 +134,7 @@ class PollrLookupService implements LookupService {
      * - Polls (whether they are open or closed)
      * - Votes (whether they exist for a given poll)
      */
-    async lookup(question: LookupQuestion): Promise<LookupAnswer | LookupFormula> {
+    async lookup(question: LookupQuestion): Promise<LookupFormula> {
         if (question.service !== 'ls_pollr') {
             throw new Error(`Invalid service name "${question.service}" for this lookup service.`)
         }
@@ -145,14 +145,13 @@ class PollrLookupService implements LookupService {
         let cursor: any
         const { type, txid, voterId, status } = question.query as PollQuery
         if (type === "vote") {
-            cursor = await this.votes?.find({pollId: txid, walID: voterId }).toArray()
+            cursor = await this.votes?.find({ pollId: txid, walID: voterId }).toArray()
         }
         else if (type == "poll") {
-            if(status == 'closed')
-            {
+            if (status == 'closed') {
                 cursor = await this.closes?.find({ txid: txid }).toArray()
             }
-            else{
+            else {
                 cursor = await this.opens?.find({ txid: txid }).toArray()
             }
         }
@@ -160,11 +159,10 @@ class PollrLookupService implements LookupService {
             cursor = await this.votes?.find({ pollId: txid }).toArray()
         }
         else if (type === "allpolls") {
-            if(status == 'open')
-            {
+            if (status == 'open') {
                 cursor = await this.opens?.find({}).toArray()
             }
-            else{
+            else {
                 cursor = await this.closes?.find({}).toArray()
             }
         }

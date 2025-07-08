@@ -1,4 +1,4 @@
-import { AdmittanceInstructions, TopicManager, LookupFormula } from '@bsv/overlay'
+import { AdmittanceInstructions, TopicManager } from '@bsv/overlay'
 import { LookupQuestion, Transaction, PushDrop, Utils, LookupResolver } from '@bsv/sdk'
 import { PollQuery } from '../types.js'
 
@@ -41,13 +41,8 @@ export default class PollrTopicManager implements TopicManager {
                             networkPreset: 'local'
                         })
                         const pollLSResult = await resolver.query(pollQuestion)
-                        if ("type" in pollLSResult) {
-                            if (pollLSResult.type === "freeform") {
-                                let poll = pollLSResult.result as { polls: any[], pollvotes: any[] }
-                                if (poll.polls.length != 1) {
-                                    throw new Error("invalid poll")
-                                }
-                            }
+                        if (pollLSResult.outputs.length !== 1) {
+                            throw new Error("invalid poll")
                         }
                         let voteQuery: PollQuery = {} as PollQuery
                         voteQuery.txid = decodedFields[2].toString()
