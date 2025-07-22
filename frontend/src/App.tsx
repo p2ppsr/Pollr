@@ -1,6 +1,7 @@
-import React from 'react'
+import React, {useEffect, useState} from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
+// import { requestGroupPermission } from '@bsv/sdk'
 import Pollr from 'pollr-react'
 import {
   ThemeProvider,
@@ -11,10 +12,39 @@ import {
   Typography
 } from '@mui/material'
 import './App.scss';
+import { checkForMetaNetClient, NoMncModal } from 'metanet-react-prompt'
+import useAsyncEffect from 'use-async-effect'
 
 const darkTheme = createTheme({ palette: { mode: 'dark' } })
+const App: React.FC = () => {
+const [MNCmissing, setMNCMissing] = useState<boolean>(false)
 
-const App: React.FC = () => (
+  useEffect(() => {
+    const hasVisited = localStorage.getItem('has_visited_pollr')
+    if(!hasVisited){
+      localStorage.setItem('has_visited_pollr', 'true');
+      // requestGroupPermission()
+    }
+  })
+
+  useAsyncEffect(async () =>{
+    const intervalId = setInterval(async () => {
+      const hasMNC = await checkForMetaNetClient()
+      if(hasMNC===0){
+        setMNCMissing(true)
+      }else{
+        clearInterval(intervalId)
+        setMNCMissing(false)
+      }
+    },1000)
+    return () => {
+      clearInterval(intervalId)
+    }
+
+  },[])
+  
+  
+  return(
   <ThemeProvider theme={darkTheme}>
     <CssBaseline />
     <BrowserRouter>
@@ -57,7 +87,8 @@ const App: React.FC = () => (
         <Pollr initialPath="/" />
       </Container>
     </BrowserRouter>
+    <NoMncModal appName={'Pollr'} open={MNCmissing} onClose={() => setMNCMissing(false)} />
   </ThemeProvider>
 )
-
+}
 export default App
