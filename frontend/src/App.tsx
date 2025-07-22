@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-// import { requestGroupPermission } from '@bsv/sdk'
+import { WalletClient } from '@bsv/sdk'
 import Pollr from 'pollr-react'
 import {
   ThemeProvider,
@@ -19,14 +19,19 @@ const darkTheme = createTheme({ palette: { mode: 'dark' } })
 const App: React.FC = () => {
 const [MNCmissing, setMNCMissing] = useState<boolean>(false)
 
-  useEffect(() => {
-    const hasVisited = localStorage.getItem('has_visited_pollr')
-    if(!hasVisited){
-      localStorage.setItem('has_visited_pollr', 'true');
-      // requestGroupPermission()
-    }
-  })
+ // ...existing code...
 
+useAsyncEffect(async () => {
+  try{
+    const walletclient = await new WalletClient()
+    await walletclient.waitForAuthentication()
+  }catch(e)
+  {
+    console.log(e)
+  }
+}, [])
+
+// ...existing code...
   useAsyncEffect(async () =>{
     const intervalId = setInterval(async () => {
       const hasMNC = await checkForMetaNetClient()
