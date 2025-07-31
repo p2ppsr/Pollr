@@ -22,13 +22,18 @@
       "protocolPermissions": [
         {
           "protocolID":[1,"identity resolution"],
-          "counterparty": "...",
+          "counterparty": "self",
           "description": "For viewing other's polls and voting"
         },
         {
           "protocolID":[2,"pollr"],
-          "counterparty": "...",
+          "counterparty": "anyone",
           "description": "for voting, creating and closing polls"
+        },
+        {
+          "protocolID":[2,"identity key retrieval"],
+          "counterparty": "self",
+          "description": "for identity key retrieval"
         }
       ],
       "basketAccess":[

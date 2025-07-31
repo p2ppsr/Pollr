@@ -19,25 +19,14 @@ const darkTheme = createTheme({ palette: { mode: 'dark' } })
 const App: React.FC = () => {
 const [MNCmissing, setMNCMissing] = useState<boolean>(false)
 
- // ...existing code...
-
-useAsyncEffect(async () => {
-  try{
-    const walletclient = await new WalletClient()
-    await walletclient.waitForAuthentication()
-  }catch(e)
-  {
-    console.log(e)
-  }
-}, [])
-
-// ...existing code...
   useAsyncEffect(async () =>{
     const intervalId = setInterval(async () => {
       const hasMNC = await checkForMetaNetClient()
       if(hasMNC===0){
         setMNCMissing(true)
       }else{
+        const walletclient = await new WalletClient()
+        await walletclient.waitForAuthentication()
         clearInterval(intervalId)
         setMNCMissing(false)
       }
