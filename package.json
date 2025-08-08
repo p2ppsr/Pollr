@@ -1,7 +1,7 @@
 {
   "name": "@bsv/project",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Standard BSV project structure",
   "scripts": {
     "lars": "lars",
