@@ -17,5 +17,8 @@
   "devDependencies": {
     "@bsv/cars-cli": "^1.2.7",
     "@bsv/lars": "^1.5.3"
+  },
+  "dependencies": {
+    "pollr-react": "^1.2.7"
   }
 }
