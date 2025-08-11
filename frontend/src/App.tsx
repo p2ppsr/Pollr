@@ -9,6 +9,7 @@ import PollDetailPage from './components/PollDetails'
 import { useAsyncEffect } from 'use-async-effect'
 import { WalletClient } from '@bsv/sdk'
 import { checkForMetaNetClient, NoMncModal } from 'metanet-react-prompt'
+import { UserProvider } from "../UserContext"; // Fix import path casing to match actual file name (UserContext.tsx)
 
 function App() {
   const [MNCmissing, setMNCMissing] = useState<boolean>(false)
@@ -33,6 +34,7 @@ function App() {
   return (
 
     <Router>
+      <UserProvider>
       <NoMncModal appName={'Pollr'} open={MNCmissing} onClose={() => setMNCMissing(false)} />
       <Container maxWidth="sm" style={{ marginTop: '2em', paddingBottom: '80px' }}>
         <Typography variant="h4" component="h1" gutterBottom align="center">
@@ -88,6 +90,7 @@ function App() {
           </a>
         </Typography>
       </footer>
+      </UserProvider>
     </Router>
   )
 }

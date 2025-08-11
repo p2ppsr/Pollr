@@ -11,7 +11,7 @@ import {
   closePoll,
 } from "../utils/PollrActions"
 import { Img } from "@bsv/uhrp-react"
-import { WalletClient } from '@bsv/sdk'
+import { useUser } from "../../UserContext"
 
 import { Button, LinearProgress } from "@mui/material"
 import { styled } from "@mui/system"
@@ -19,7 +19,6 @@ import { styled } from "@mui/system"
 const LoadingBar = styled(LinearProgress)({
   margin: "1em",
 })
-const walletClient = new WalletClient()
 
 const PollDetailPage: React.FC = () => {
   const { pollId } = useParams<{ pollId: string }>()
@@ -29,20 +28,12 @@ const PollDetailPage: React.FC = () => {
   const [results, setResults] = useState<string[]>([])
   const [actionType, setActionType] = useState<"open" | "completed" | null>(null)
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null)
-  const [currentUserId, setCurrentUserId] = useState<string>("")
-
-  // get current user
-  useEffect(() => {
-    walletClient
-      .getPublicKey({ identityKey: true })
-      .then((res) => setCurrentUserId(res.publicKey))
-      .catch(console.error)
-  }, [])
+  const { getClients, getAvatarCached, userId } = useUser()
 
   useEffect(() => {
     if (!pollId) return
     setLoading(true)
-    Promise.all([fetchAllOpenPolls(), getClosedPolls()])
+    Promise.all([fetchAllOpenPolls({ getClients, getAvatarCached }), getClosedPolls({ getClients, getAvatarCached })])
       .then(([openPolls, closedPolls]) => {
         const found =
           openPolls.find((p) => p.id === pollId) ||
@@ -51,7 +42,7 @@ const PollDetailPage: React.FC = () => {
         setPoll(found)
         if (found.status === "open") {
           setActionType("open")
-          return fetchOpenVotes(found.id).then((votes) =>
+          return fetchOpenVotes(found.id, { getClients, getAvatarCached }).then((votes) =>
             setResults(
               votes.map((r) => {
                 const [opt, cnt] = Object.entries(r)[0]
@@ -61,7 +52,7 @@ const PollDetailPage: React.FC = () => {
           )
         } else {
           setActionType("completed")
-          return getPollResults(found.id).then((res) =>
+          return getPollResults(found.id, { getClients, getAvatarCached }).then((res) =>
             setResults(
               res.map((r) => {
                 const [opt, cnt] = Object.entries(r)[0]
@@ -73,11 +64,11 @@ const PollDetailPage: React.FC = () => {
       })
       .catch(console.error)
       .finally(() => setLoading(false))
-  }, [pollId])
+  }, [pollId, getClients, getAvatarCached])
 
   if (loading || !poll) return <LoadingBar />
 
-  const isOwner = poll.key === currentUserId
+  const isOwner = poll.key === (userId ?? "")
   const headerText = actionType === "completed" ? "Closed Poll" : "Active Poll"
   const subheaderText = actionType === "completed" ? "Final Results" : "Interim Results"
 
@@ -86,8 +77,8 @@ const PollDetailPage: React.FC = () => {
     setLoading(true)
     try {
       const voteOption = selectedChoice.split(":")[0].trim()
-      await submitVote({ poll, index: voteOption })
-      const fresh = await fetchOpenVotes(poll.id)
+      await submitVote({ poll, index: voteOption }, { getClients, getAvatarCached })
+      const fresh = await fetchOpenVotes(poll.id, { getClients, getAvatarCached })
       setResults(
         fresh.map((r) => {
           const [opt, cnt] = Object.entries(r)[0]
@@ -105,7 +96,7 @@ const PollDetailPage: React.FC = () => {
   const handleClosePoll = async () => {
     setLoading(true)
     try {
-      await closePoll({ pollId: poll.id })
+      await closePoll({ pollId: poll.id }, { getClients, getAvatarCached })
       alert("Poll Closed")
       navigate(-1)
     } catch {

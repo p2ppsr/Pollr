@@ -6,6 +6,7 @@ import { styled } from "@mui/system"
 import { LinearProgress } from "@mui/material"
 import { useNavigate } from "react-router-dom"
 import { StorageUploader,WalletClient } from "@bsv/sdk"
+import { useUser } from "../../UserContext"
 
 const LoadingBar = styled(LinearProgress)({
   margin: "1em"
@@ -24,6 +25,7 @@ const CreatePollForm: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false)
   const [uploadProgress, setUploadProgress] = useState<number>(0)
   const navigate = useNavigate()
+  const { getClients, getAvatarCached } = useUser()
 
   const handleNumberOfOptionsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
@@ -209,7 +211,7 @@ const CreatePollForm: React.FC = () => {
         pollDescription,
         optionsType,
         options: options.map(opt => ({ value: opt.value.trim() }))
-      })
+      }, { getClients, getAvatarCached })
       
       setUploadProgress(100)
       alert("Poll Successfully Created!")

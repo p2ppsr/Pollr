@@ -1,233 +1,679 @@
-// ============================================================
-// Notes:
-// - Use @bsv/sdk and @bsv/overlay
-// - PushDrop fields are varint-prefixed UTF-8 byte chunks.
-// - The first 7 fields in a poll token are metadata; options follow.
-// ============================================================
+import { PushDrop, Utils, Transaction, type WalletOutput, CreateActionInput, IdentityClient, Beef, LookupResolver, TopicBroadcaster, SignActionSpend, WalletClient } from '@bsv/sdk'
+import { Option, PollQuery, Poll } from '../types/types'
+import { LookupQuestion } from '@bsv/overlay'
+type PollrDeps = {
+  getClients: () => Promise<{
+    wallet: WalletClient;
+    resolver: LookupResolver;
+    broadcaster: TopicBroadcaster;
+  }>;
+  getAvatarCached: (identityKey: string) => Promise<string>;
+}
 
-// ------------------------- Create Poll -------------------------
+/**
+ * Creates a new poll by locking poll information into a token.
+ * The poll metadata includes the poll name, description, type, options and a timestamp.
+ *
+ * @param pollName - The name of the poll
+ * @param pollDescription - The description of the poll
+ * @param optionsType - The type of options for the poll (e.g. text)
+ * @param options - An array of options for the poll
+ * @returns void
+ */
 export async function submitCreatePolls({
   pollName,
   pollDescription,
   optionsType,
-  options,
-}: {
-  pollName: string
-  pollDescription: string
-  optionsType: string
-  options: { value: string }[]
-}): Promise<string> {
-  // TODO 1: Initialize wallet + identity:
-  //   - wallet = new WalletClient()
-  //   - creator = await wallet.getPublicKey({ identityKey: true })  // use identity key so we can attribute the poll
+  options, }: {
+    pollName: string,
+    pollDescription: string,
+    optionsType: string,
+    options: Option[]
+  }, deps: PollrDeps): Promise<string> {
+  const { wallet, broadcaster } = await deps.getClients()
 
-  // TODO 2: Build PushDrop fields:
-  //   Ensure that the first field identifies which type of token it is [vote, poll, or close]
+  const pollCreator = await wallet.getPublicKey({ identityKey: true })
 
-  // TODO 3: Frame fields with Utils.toArray():
+  const PD = new PushDrop(wallet)
+  const fields = [
+    Buffer.from("open", "utf8"),
+    Buffer.from('' + pollCreator.publicKey, "utf8"),           // Ensure walID is a string
+    Buffer.from('' + pollName, "utf8"),
+    Buffer.from('' + pollDescription, "utf8"),
+    Buffer.from('' + options.length.toString(), "utf8"),
+    Buffer.from('' + optionsType, "utf8"),
+    Buffer.from('' + Math.floor(Date.now() / 1000).toString(), "utf8"),
+    ...options.map((opt) => Buffer.from(opt.value, "utf8"))
+  ]
+  const writer = new Utils.Writer()
 
-  // TODO 4: Create a locking script for the poll token:
-  //   - PD = new PushDrop(wallet)
+  for (const field of fields) {
+    writer.writeVarIntNum(field.length)
+    writer.write(Array.from(field))
+  }
+  const flattenedArray = writer.toArray()
 
-  // TODO 5: Create the action (mint the poll token to a basket):
-  //   - options: { randomizeOutputs: false, acceptDelayedBroadcast: false }
-  //   - description can include the poll name for clarity
+  const OutputScript = await PD.lock(
+    [flattenedArray],
+    [2, 'pollr'],
+    '1',
+    'self'
+  )
 
-  // TODO 6: Convert returned atomic BEEF to Transaction for broadcast:
-  // TODO 7: Return the txid from the action result.
+  const newPollToken = await wallet.createAction({
+    outputs: [{
+      lockingScript: OutputScript.toHex(),
+      satoshis: 1,
+      basket: 'myPolls',
+      outputDescription: 'New Poll'
+    }],
+    options: {
+      randomizeOutputs: false,
+      acceptDelayedBroadcast: false
+    },
+    description: `Create a Poll: ${pollName}`
+  })
 
-  throw new Error('Not implemented: submitCreatePolls')
+  const tx = Transaction.fromAtomicBEEF(newPollToken.tx!)
+  if (!tx) {
+    throw new Error("Transaction creation failed: tx is undefined")
+  }
+  const beef = tx.toBEEF()
+
+
+  const broadcasterResult = await broadcaster.broadcast(tx)
+  if (broadcasterResult.status === 'error') {
+    throw new Error('Transaction failed to broadcast')
+  }
+  return newPollToken.txid!
 }
 
-// --------------------------- Vote ------------------------------
+/**
+ * Submits a vote for a given poll by locking the vote data into a vote token.
+ *
+ * @param poll - The poll object representing the poll to vote in
+ * @param index - The selected option index (as string) for the vote
+ * @returns void
+ */
 export async function submitVote({
   poll,
-  index,
+  index }: {
+    poll: Poll
+    index: string
+  }, deps: PollrDeps) {
+  const { wallet, broadcaster } = await deps.getClients()
+  const pollCreator = await wallet.getPublicKey({ identityKey: true })
+
+
+  const PD = new PushDrop(wallet)
+  const fields = [
+    Buffer.from("vote", "utf8"),
+    Buffer.from('' + pollCreator.publicKey, "utf8"),
+    Buffer.from('' + poll.id, "utf8"),
+    Buffer.from('' + index, "utf8"),
+  ]
+  const writer = new Utils.Writer()
+
+  for (const field of fields) {
+    writer.writeVarIntNum(field.length)
+    writer.write(Array.from(field))
+  }
+  const flattenedArray = writer.toArray()
+
+  const OutputScript = await PD.lock(
+    [flattenedArray],
+    [2, 'pollr'],
+    '1',
+    poll.key
+  )
+
+  const newPollToken = await wallet.createAction({
+    outputs: [{
+      lockingScript: OutputScript.toHex(),
+      satoshis: 1,
+      basket: 'myVotes',
+      outputDescription: `Vote Token for poll: ${poll.id} `
+    }],
+    options: {
+      randomizeOutputs: false,
+      acceptDelayedBroadcast: false
+    },
+    description: `Voting choice: ${index}`
+  })
+  const tx = Transaction.fromAtomicBEEF(newPollToken.tx!)
+  if (!tx) {
+    throw new Error("Transaction creation failed: tx is undefined")
+  }
+  const broadcasterResult = await broadcaster.broadcast(tx)
+  if (broadcasterResult.status === 'error') {
+    throw new Error('Transaction failed to broadcast')
+  }
+}
+
+/**
+ * Closes a poll by aggregating all vote tokens, replacing poll metadata status to "close", and appending final vote counts.
+ *
+ * @param pollId - The unique identifier (transaction ID) of the poll to be closed
+ * @returns void
+ */
+export async function closePoll({
+  pollId
 }: {
-  poll: { id: string; key: string } // minimal shape needed here
-  index: string
-}) {
-  // TODO 1: Initialize wallet and get the voter’s identity pubkey:
-  //   - wallet = new WalletClient()
-  //   - voter = await wallet.getPublicKey({ identityKey: true }) // ties the vote to a key we can later verify
+  pollId: string
+}, deps: PollrDeps) {
+  const { wallet, broadcaster } = await deps.getClients()
+  let query = {} as PollQuery
+  query.txid = pollId
+  query.type = 'allvotesfor'
+  let question = {} as LookupQuestion
+  question.query = query
+  question.service = 'ls_pollr'
 
-  // TODO 2: Build vote fields (UTF-8 Buffers):
+  const network = (await wallet.getNetwork()).network
+  const resolver = new LookupResolver({
+    networkPreset: location.hostname === 'localhost' ? 'local' : network
+  })
+  const lookupResult = await resolver.query(question)
 
-  // TODO 3: Use Utils.toArray frame the fields:
-  //   - writer.writeVarIntNum(len) + writer.write(bytes) for each
-  //   - flattened = writer.toArray()
+  if (lookupResult.type !== 'output-list') {
+    throw new Error('Lookup result type must be output-list')
+  }
 
-  // TODO 4: Create a vote token locking script:
-  //   - PD = new PushDrop(wallet)
-  //   - script = await PD.lock([fields], [2,'testpollr'], '1', poll.key)
-  //     (owner = poll.key so the poll owner can close/aggregate votes later)
+  let votes: string[][] = []
+  for (const output of lookupResult.outputs) {
+    const parsedTransaction = Transaction.fromBEEF(output.beef)
+    const decoded = PushDrop.decode(
+      parsedTransaction.outputs[output.outputIndex].lockingScript
+    )
 
-  // TODO 5: Create the action to mint the vote token:
-  //   - outputs[0]: { lockingScript: script.toHex(), satoshis: 1, basket: 'myTestVotes', outputDescription: `Vote Token for: ${poll.id}` }
-  //   - options: { randomizeOutputs: false, acceptDelayedBroadcast: false }
+    const reader = new Utils.Reader(decoded.fields[0])
+    const decodedFields: string[] = []
+    while (!reader.eof()) {
+      const fieldLength = reader.readVarIntNum()
+      const fieldBytes = reader.read(fieldLength)
+      decodedFields.push(Utils.toUTF8(fieldBytes))
+    }
+    votes.push(decodedFields)
+  }
 
-  // TODO 6: Broadcast:
-  //   - tx = Transaction.fromAtomicBEEF(action.tx!)
-  //   - broadcaster (topic 'tm_pollr', networkPreset as above)
-  //   - await broadcaster.broadcast(tx); throw on failure
+  // Initialize vote counts based on allowed poll options
+  const voteCounts: Record<string, number> = {} as Record<string, number>
+  const voteOptions = await getPollOptions(pollId, deps)
+  voteOptions.forEach(option => {
+    voteCounts[option] = 0
+  })
 
-  throw new Error('Not implemented: submitVote')
+  // Count the votes only for allowed options
+  votes.forEach(vote => {
+    const option = vote[3]
+    if (option in voteCounts) {
+      voteCounts[option] += 1
+    }
+  })
+  const voteCountsArray: Record<string, number>[] = voteOptions.map(option => ({
+    [option]: voteCounts[option]
+  }))
+  console.log(`${JSON.stringify(voteCountsArray)}`)
+  // Retrieve the original (open) poll token to get poll information
+  let opentoken = await getPoll(pollId, deps)
+  const decodedOpenToken = PushDrop.decode(opentoken.outputs[0].lockingScript)
+
+  // Decode all fields from the open token
+  const openReader = new Utils.Reader(decodedOpenToken.fields[0])
+  const openFields: Buffer[] = []
+  while (!openReader.eof()) {
+    const fieldLength = openReader.readVarIntNum()
+    const fieldBytes = openReader.read(fieldLength)
+    openFields.push(Buffer.from(fieldBytes))
+  }
+
+  // We only want the metadata (first 7 fields), so discard the options.
+  const metadataFields = openFields.slice(0, 7)
+
+  // Replace the first field "open" with "close"
+  if (metadataFields.length > 0) {
+    metadataFields[0] = Buffer.from("close", "utf8")
+  }
+
+  // Create a new writer and add the modified metadata fields
+  const writer = new Utils.Writer()
+  for (const field of metadataFields) {
+    writer.writeVarIntNum(field.length)
+    writer.write(Array.from(field))
+  }
+
+  // Append the vote counts from the voteCountsArray
+  for (const voteObj of voteCountsArray) {
+    const key = Object.keys(voteObj)[0]
+    const value = voteObj[key]
+
+    const keyBuffer = Buffer.from(key, "utf8")
+    writer.writeVarIntNum(keyBuffer.length)
+    writer.write(Array.from(keyBuffer))
+
+    const valueBuffer = Buffer.from(String(value), "utf8")
+    writer.writeVarIntNum(valueBuffer.length)
+    writer.write(Array.from(valueBuffer))
+  }
+
+  const data = writer.toArray()
+
+  // Use the combined data to create the locking script for the close token
+  const lockingScript = await new PushDrop(wallet).lock(
+    [data],
+    [2, 'pollr'],
+    '1',
+    'self'
+  )
+
+  // Build inputs from the original open token and vote tokens
+  const beefer = new Beef()
+  const inputs: CreateActionInput[] = []
+  inputs.push({
+    outpoint: opentoken.id('hex') + '.0',
+    unlockingScriptLength: 74,
+    inputDescription: 'openToken'
+  })
+  beefer.mergeBeef(opentoken.toAtomicBEEF())
+  for (const vote of lookupResult.outputs) {
+    let beef = Transaction.fromBEEF(vote.beef)
+    inputs.push({
+      outpoint: beef.id('hex') + ".0",
+      unlockingScriptLength: 74,
+      inputDescription: 'voteToken'
+    })
+    beefer.mergeBeef(vote.beef)
+  }
+
+  const { signableTransaction } = await wallet.createAction({
+    description: `Closing token`,
+    inputBEEF: beefer.toBinary(),
+    inputs,
+    outputs: [{
+      lockingScript: lockingScript.toHex(),
+      satoshis: 1,
+      outputDescription: 'close token'
+    }],
+    options: {
+      acceptDelayedBroadcast: false,
+      randomizeOutputs: false
+    }
+  })
+  if (signableTransaction === undefined) {
+    throw new Error('Failed to create signable transaction')
+  }
+  const tx = Transaction.fromAtomicBEEF(signableTransaction.tx!)
+  const pd = new PushDrop(wallet)
+  const spends: Record<number, SignActionSpend> = {}
+
+  // Sign the open token input
+  let unlocker = pd.unlock(
+    [2, 'pollr'],
+    '1',
+    'self'
+  )
+  let unlockingScript = (await unlocker.sign(tx, 0)).toHex()
+  spends[0] = { unlockingScript }
+
+  // Sign vote token inputs – note that we use each vote token’s associated key
+  for (let i = 1; i < inputs.length; i++) {
+    unlocker = pd.unlock(
+      [2, 'pollr'],
+      '1',
+      votes[i - 1][1]
+    )
+    unlockingScript = (await unlocker.sign(tx, i)).toHex()
+    spends[i] = { unlockingScript }
+  }
+  const { tx: completedTx } = await wallet.signAction({
+    reference: signableTransaction.reference,
+    spends,
+    options: {}
+  })
+  const parsedCompletedTx = Transaction.fromAtomicBEEF(completedTx!)
+  await broadcaster.broadcast(parsedCompletedTx)
 }
 
-// ------------------------- Close Poll --------------------------
-export async function closePoll({ pollId }: { pollId: string }) {
-  // TODO 1: Query all vote tokens for this poll:
-  //   - question: { query: { type:'allvotesfor', txid: pollId }, service:'ls_pollr' }
-  //   - resolver = new LookupResolver({ networkPreset: local-or-network })
-  //   - lookupResult = await resolver.query(question); assert type === 'output-list'
+/**
+ * Fetches all open polls from the LS polling service.
+ *
+ * @returns A promise that resolves to an array of Poll objects representing all open polls.
+ */
+export async function fetchAllOpenPolls(deps: PollrDeps): Promise<Poll[]> {
+  let query = {} as PollQuery
+  query.type = 'allpolls'
+  query.status = "open"
+  let question = {} as LookupQuestion
+  question.query = query
+  question.service = 'ls_pollr'
+  const { resolver } = await deps.getClients()
 
-  // TODO 2: Decode each vote output:
-  //   - parsed = Transaction.fromBEEF(output.beef)
-  //   - decoded = PushDrop.decode(parsed.outputs[outputIndex].lockingScript)
-  //   - Use Utils.Reader to read field frames -> strings
-  //   - Collect rows like ["vote", voterKey, pollId, chosenOption]
+  const lookupResult = await resolver.query(question)
 
-  // TODO 3: Get allowed options + count votes:
-  //   - allowed = await getPollOptions(pollId)  // authoritative options
-  //   - init counts map for allowed only; increment when chosenOption is allowed
+  if (lookupResult.type !== 'output-list') {
+    throw new Error('Must be of type output list')
+  }
 
-  // TODO 4: Load and decode the original open poll token:
-  //   - openTx = await getPoll(pollId)
-  //   - decoded = PushDrop.decode(openTx.outputs[0].lockingScript)
-  //   - Read all fields; keep first 7 (metadata)
-  //   - Replace metadata[0] = "close"
+  let pollsData: string[][] = []
+  for (const output of lookupResult.outputs) {
 
-  // TODO 5: Build closing payload:
-  //   - writer: write the 7 metadata fields
-  //   - then append result pairs [option, String(count)] in a stable order (same as allowed)
-  //   - data = writer.toArray()
+    const parsedTransaction = Transaction.fromBEEF(output.beef)
+    const decoded = await PushDrop.decode(parsedTransaction.outputs[0].lockingScript)
 
-  // TODO 6: Build closing token locking script:
-  //   - closeScript = await new PushDrop(wallet).lock([data], [2,'testpollr'], '1', 'self')
+    const reader = new Utils.Reader(decoded.fields[0])
+    const decodedFields = []
+    while (!reader.eof()) {
+      const fieldLength = reader.readVarIntNum()
+      const fieldBytes = reader.read(fieldLength)
+      decodedFields.push(Utils.toUTF8(fieldBytes))
+    }
+    decodedFields.push(parsedTransaction.id('hex'))
+    pollsData.push(decodedFields)
+  }
 
-  // TODO 7: Prepare inputs (merge BEEF for signing):
-  //   - inputs[0] = open token outpoint (.0), unlockingScriptLength ~ 74
-  //   - inputs[1..] = each vote token outpoint (.0), unlockingScriptLength ~ 74
-  //   - beefer = new Beef(); merge open token BEEF + each vote’s BEEF
+  const polls: Poll[] = await Promise.all(
+    pollsData.map(async (row: string[]) => ({
+      key: row[1],
+      avatarUrl: await deps.getAvatarCached(row[1]),
+      id: row.pop()!.toString(),
+      name: row[2],
+      desc: row[3],
+      date: row[6],
+      status: 'open',
+      optionstype: row[5],
+    }))
+  )
 
-  // TODO 8: Create a signable action for the closing tx:
-  //   - wallet.createAction({ inputBEEF: beefer.toBinary(), inputs, outputs:[{ lockingScript: closeScript.toHex(), satoshis:1 }], options:{ acceptDelayedBroadcast:false, randomizeOutputs:false } })
-  //   - keep reference and tx for signing
-
-  // TODO 9: Sign inputs:
-  //   - tx = Transaction.fromAtomicBEEF(signable.tx!)
-  //   - spends[0]: PushDrop.unlock([2,'testpollr'], '1', 'self').sign(tx, 0)
-  //   - for each vote input i: unlock with that vote’s key from the decoded vote row; sign(tx, i)
-  //   - wallet.signAction({ reference, spends })
-
-  // TODO 10: Broadcast finalized tx via TopicBroadcaster (topic 'tm_pollr').
-
-  throw new Error('Not implemented: closePoll')
+  return polls
 }
 
-// -------------------- Fetch All Open Polls ---------------------
-export async function fetchAllOpenPolls(): Promise<Array<{
-  key: string
-  avatarUrl: string
-  id: string
-  name: string
-  desc: string
-  date: string
-  status: 'open'
-  optionstype: string
-}>> {
-  // TODO 1: Query { type:'allpolls', status:'open' } from service 'ls_pollr' via LookupResolver.
+/**
+ * Fetches vote tokens for an open poll and aggregates vote counts for allowed options.
+ *
+ * @param pollId - The unique identifier (transaction ID) of the poll
+ * @returns A promise that resolves to an array of records with each record mapping a poll option to its vote count
+ */
+export async function fetchOpenVotes(pollId: string, deps: PollrDeps): Promise<Record<string, number>[]> {
+  let query = {} as PollQuery
+  query.type = 'allvotesfor'
+  query.status = 'open'
 
-  // TODO 2: For each output:
-  //   - tx = Transaction.fromBEEF(beef)
-  //   - decoded = PushDrop.decode(tx.outputs[0].lockingScript)
-  //   - read fields into strings; also capture tx.id('hex') as poll id
+  query.txid = pollId
+  let question = {} as LookupQuestion
+  question.query = query
+  question.service = 'ls_pollr'
+  const { resolver } = await deps.getClients()
 
-  // TODO 3: Map into display objects:
-  //   - key = fields[1], name = fields[2], desc = fields[3], optionstype = fields[5], date = fields[6]
-  //   - id = txid
-  //   - avatarUrl = await getAvatar(key)
-  //   - status = 'open'
 
-  throw new Error('Not implemented: fetchAllOpenPolls')
+  const lookupResult = await resolver.query(question)
+
+  if (lookupResult.type !== 'output-list') {
+    throw new Error('Lookup result type must be output-list')
+  }
+  let votes: string[][] = []
+  for (const output of lookupResult.outputs) {
+
+    const parsedTransaction = Transaction.fromBEEF(output.beef)
+    const decoded = await PushDrop.decode(parsedTransaction.outputs[0].lockingScript)
+
+    const reader = new Utils.Reader(decoded.fields[0])
+    const decodedFields = []
+    while (!reader.eof()) {
+      const fieldLength = reader.readVarIntNum()
+      const fieldBytes = reader.read(fieldLength)
+      decodedFields.push(Utils.toUTF8(fieldBytes))
+    }
+    votes.push(decodedFields)
+  }
+  const voteCounts: Record<string, number> = {} as Record<string, number>
+  const voteOptions = await getPollOptions(pollId, deps)
+  voteOptions.forEach(option => {
+    voteCounts[option] = 0
+  })
+
+  // Count the votes only for allowed options.
+  votes.forEach(vote => {
+    const option = vote[3]
+    if (option in voteCounts) {
+      voteCounts[option] += 1
+    }
+  })
+  const voteCountsArray: Record<string, number>[] = voteOptions.map(option => ({ [option]: voteCounts[option] }))
+
+  return voteCountsArray
 }
 
-// -------------------- Fetch Open Votes (counts) ----------------
-export async function fetchOpenVotes(pollId: string): Promise<Record<string, number>[]> {
-  // TODO 1: Query votes: { type:'allvotesfor', status:'open', txid: pollId }.
+/**
+ * Fetches polls created by the current user using the wallet's identity.
+ *
+ * @returns A promise that resolves to an array of formatted poll objects representing the user's polls.
+ */
+export async function fetchMypolls(deps: PollrDeps) {
+  const { wallet } = await deps.getClients()
+  let formattedPoll: {}[] = []
+  try {
+    const walID = await wallet.getPublicKey({
+      identityKey: true
+    })
 
-  // TODO 2: Decode each vote token’s fields and collect chosen options.
+    const pollFromBasket = await wallet.listOutputs({
+      basket: 'myPolls',
+      include: 'entire transactions'
+    })
+    let localpolls: string[][] = []
+    const polls = await Promise.all(pollFromBasket.outputs.map(async (task: WalletOutput, i: number) => {
+      try {
+        const tx = Transaction.fromBEEF(pollFromBasket.BEEF as number[], task.outpoint.split('.')[0])
+        const lockingScript = tx!.outputs[0].lockingScript
+        const decodedOutput = await PushDrop.decode(lockingScript)
+        const reader = new Utils.Reader(decodedOutput.fields[0])
+        const decodedFields = []
+        while (!reader.eof()) {
+          const fieldLength = reader.readVarIntNum()
+          const fieldBytes = reader.read(fieldLength)
+          decodedFields.push(Utils.toUTF8(fieldBytes))
+        }
+        decodedFields.push(pollFromBasket.outputs[i].outpoint.split('.')[0])
+        localpolls.push(decodedFields)
+      }
+      catch (e) {
+        console.log(`error decoding polls ${e}`)
+      }
+    }))
+    for (let i = 0; i < localpolls.length; i++) {
+      const poll = localpolls[i]
+      let id = poll.pop()!
+      formattedPoll.push({
+        key: walID.publicKey,
+        avatarUrl: await deps.getAvatarCached(walID.publicKey),
+        id: id,
+        name: poll[2],
+        desc: poll[3],
+        date: poll[6],
+        optionstype: poll[5]
+      })
+    }
+  }
+  catch (e) {
+    console.log(`error finding basket polls:${e}`)
+  }
+  return formattedPoll
 
-  // TODO 3: allowed = await getPollOptions(pollId); init counts for allowed only; tally.
-
-  // TODO 4: Return counts aligned to allowed order:
-  //   - e.g., allowed.map(opt => ({ [opt]: counts[opt] }))
-
-  throw new Error('Not implemented: fetchOpenVotes')
 }
 
-// --------------------------- My Polls --------------------------
-export async function fetchMypolls() {
-  // TODO 1: walID = await wallet.getPublicKey({ identityKey:true })
+/**
+ * Retrieves all closed polls from the LS polling service.
+ *
+ * @returns A promise that resolves to an array of Poll objects representing closed polls.
+ */
+export async function getClosedPolls(deps: PollrDeps) {
+  let query = {} as PollQuery
+  query.type = 'allpolls'
+  query.status = "closed"
+  let question = {} as LookupQuestion
+  question.query = query
+  question.service = 'ls_pollr'
+  const { wallet, resolver } = await deps.getClients()
 
-  // TODO 2: listOutputs({ basket:'myTestPolls', include:'entire transactions' }) to get tx BEEF per outpoint.
+  const lookupResult = await resolver.query(question)
 
-  // TODO 3: For each output:
-  //   - tx = Transaction.fromBEEF(BEEF, outpointTxid)
-  //   - decode fields from tx.outputs[0].lockingScript
-  //   - extract txid from outpoint (before ".0")
+  if (lookupResult.type !== 'output-list') {
+    throw new Error('Lookup result type must be output-list')
+  }
+  const PD = new PushDrop(wallet)
+  let pollsData: string[][] = []
+  for (const output of lookupResult.outputs) {
 
-  // TODO 4: Build objects:
-  //   - key = walID.publicKey; avatarUrl = await getAvatar(key)
-  //   - id = txid; name = fields[2]; desc = fields[3]; date = fields[6]; optionstype = fields[5]
+    const parsedTransaction = Transaction.fromBEEF(output.beef)
+    const decoded = await PushDrop.decode(parsedTransaction.outputs[0].lockingScript)
 
-  throw new Error('Not implemented: fetchMypolls')
+    const reader = new Utils.Reader(decoded.fields[0])
+    const decodedFields = []
+    while (!reader.eof()) {
+      const fieldLength = reader.readVarIntNum()
+      const fieldBytes = reader.read(fieldLength)
+      decodedFields.push(Utils.toUTF8(fieldBytes))
+    }
+    decodedFields.push(parsedTransaction.id('hex'))
+    pollsData.push(decodedFields)
+  }
+  console.log(`closed polls: ${JSON.stringify(pollsData)}`)
+
+  const polls: Poll[] = await Promise.all(
+    pollsData.map(async (row: string[]) => ({
+      key: row[1],
+      avatarUrl: await deps.getAvatarCached(row[1]),
+      id: row.pop()!.toString(),
+      name: row[2],
+      desc: row[3],
+      date: row[6],
+      status: 'closed',
+      optionstype: row[5],
+    }))
+  )
+
+  console.log(`closed returning polls: ${JSON.stringify(polls)}`)
+  return polls
 }
 
-// ------------------------- Closed Polls ------------------------
-export async function getClosedPolls() {
-  // TODO 1: Query { type:'allpolls', status:'closed' } via LookupResolver.
+/**
+ * Retrieves the poll options for an open poll.
+ *
+ * @param pollId - The unique identifier (transaction ID) of the poll
+ * @returns A promise that resolves to an array of strings representing the poll options.
+ */
+export async function getPollOptions(pollId: string, deps: PollrDeps): Promise<string[]> {
+  const { wallet, resolver } = await deps.getClients()
+  let query = {} as PollQuery
+  query.type = 'poll'
+  query.status = 'open'
+  query.txid = pollId
+  let question = {} as LookupQuestion
+  question.query = query
+  question.service = 'ls_pollr'
+  const lookupResult = await resolver.query(question)
+  if (lookupResult.type !== 'output-list') {
+    throw new Error('Lookup result type must be output-list')
+  }
+  const parsedTransaction = Transaction.fromBEEF(lookupResult.outputs[0].beef)
+  const decoded = PushDrop.decode(parsedTransaction.outputs[0].lockingScript)
 
-  // TODO 2: Decode like open polls; map fields to the same structure but status:'closed'.
+  const reader = new Utils.Reader(decoded.fields[0])
+  const decodedFields = []
+  while (!reader.eof()) {
+    const fieldLength = reader.readVarIntNum()
+    const fieldBytes = reader.read(fieldLength)
+    decodedFields.push(Utils.toUTF8(fieldBytes))
+  }
 
-  throw new Error('Not implemented: getClosedPolls')
+  return decodedFields.slice(7)
 }
 
-// ----------------------- Poll Options --------------------------
-export async function getPollOptions(pollId: string): Promise<string[]> {
-  // TODO 1: Query the specific poll: { type:'poll', status:'open', txid: pollId }.
+/**
+ * Retrieves poll results for a closed poll by parsing vote counts from the closing token.
+ *
+ * @param pollId - The unique identifier (transaction ID) of the poll
+ * @returns A promise that resolves to an array of records mapping each poll option to its vote count.
+ */
+export async function getPollResults(pollId: string, deps: PollrDeps): Promise<Record<string, number>[]> {
+  let query = {} as PollQuery
+  query.type = 'poll'
+  query.status = 'closed'
 
-  // TODO 2: Decode fields and return fields.slice(7) (options only).
+  query.txid = pollId
+  let question = {} as LookupQuestion
+  question.query = query
+  question.service = 'ls_pollr'
+  const { resolver } = await deps.getClients()
 
-  throw new Error('Not implemented: getPollOptions')
+  const lookupResult = await resolver.query(question)
+
+  if (lookupResult.type !== 'output-list') {
+    throw new Error('Lookup result type must be output-list')
+  }
+  let parsedTransaction = Transaction.fromBEEF(lookupResult.outputs[0].beef)
+  const decoded = await PushDrop.decode(parsedTransaction.outputs[0].lockingScript)
+
+  const reader = new Utils.Reader(decoded.fields[0])
+  const decodedFields = []
+  while (!reader.eof()) {
+    const fieldLength = reader.readVarIntNum()
+    const fieldBytes = reader.read(fieldLength)
+    decodedFields.push(Utils.toUTF8(fieldBytes))
+  }
+  let resultingVotes: Record<string, number>[] = []
+  const results = decodedFields.slice(7)
+  for (let i = 0; i < results.length; i += 2) {
+    const option = results[i]
+    const count = Number(results[i + 1])
+    resultingVotes.push({ [option]: count })
+  }
+  console.log(`${JSON.stringify(resultingVotes)}`)
+  return resultingVotes
 }
 
-// ----------------------- Poll Results --------------------------
-export async function getPollResults(pollId: string): Promise<Record<string, number>[]> {
-  // TODO 1: Query the closed poll: { type:'poll', status:'closed', txid: pollId }.
+/**
+ * Retrieves the open poll token (transaction) for the specified poll.
+ *
+ * @param pollId - The unique identifier (transaction ID) of the poll
+ * @returns A promise that resolves to a Transaction object representing the open poll token.
+ */
+export async function getPoll(pollId: string, deps: PollrDeps): Promise<Transaction> {
+  const { wallet, resolver } = await deps.getClients()
+  let query = {} as PollQuery
+  query.type = 'poll'
+  query.status = 'open'
+  query.txid = pollId
+  let question = {} as LookupQuestion
+  question.query = query
+  question.service = 'ls_pollr'
+  const lookupResult = await resolver.query(question)
+  if (lookupResult.type !== 'output-list') {
+    throw new Error('Lookup result type must be output-list')
+  }
 
-  // TODO 2: Decode fields; results start at index 7 as [option, count, option, count, ...].
-  //   - Iterate in steps of 2, Number(count), return array of { [option]: count }.
-
-  throw new Error('Not implemented: getPollResults')
+  return Transaction.fromBEEF(lookupResult.outputs[0].beef)
 }
 
-// -------------------- Get Open Poll Transaction ----------------
-export async function getPoll(pollId: string) /* : Promise<Transaction> */ {
-  // TODO 1: Query { type:'poll', status:'open', txid: pollId }; ensure result.type === 'output-list'.
-
-  // TODO 2: Return Transaction.fromBEEF(firstOutput.beef).
-
-  throw new Error('Not implemented: getPoll')
-}
-
-// ---------------------------- Avatar ---------------------------
-export async function getAvatar(identityKey: string): Promise<string> {
-  // TODO 1: identityClient = new IdentityClient(new WalletClient())
-
-  // TODO 2: identities = await identityClient.resolveByIdentityKey({ identityKey })
-
-  // TODO 3: Return identities[0]?.avatarURL || '' (empty string fallback). Log errors but don’t throw.
-
-  throw new Error('Not implemented: getAvatar')
+/**
+ * Retrieves the avatar URL for a given identity key.
+ *
+ * @param identityKey - The identity key used for lookup
+ * @returns A promise that resolves to a string representing the avatar URL (or an empty string if not found)
+ */
+export async function getAvatar(identityKey: string, deps: PollrDeps): Promise<string> {
+  let avatarUrl: string = ''
+  const { wallet } = await deps.getClients()
+  try {
+    const identityClient = new IdentityClient(wallet)
+    const identities = await identityClient.resolveByIdentityKey({
+      identityKey: identityKey
+    })
+    if (identities.length > 0) {
+      avatarUrl = identities[0]?.avatarURL
+    }
+  } catch (error) {
+    console.error('Error fetching identity:', error)
+  }
+  return avatarUrl
 }
