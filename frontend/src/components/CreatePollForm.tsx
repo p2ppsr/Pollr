@@ -12,7 +12,7 @@ const LoadingBar = styled(LinearProgress)({
   margin: "1em"
 })
 
-const STORAGE_URL = "UHRP-lite.babbage.systems"
+const STORAGE_URL = "https://uhrp-lite.babbage.systems"
 const HOSTING_MINUTES = 525600 // Default: ~1 year
 
 const CreatePollForm: React.FC = () => {
@@ -21,7 +21,7 @@ const CreatePollForm: React.FC = () => {
   const [numberOfOptions, setNumberOfOptions] = useState<string>("2")
   const [optionsType, setOptionsType] = useState<"text" | "UHRP" | "UHRPlink">("text")
   const [options, setOptions] = useState<Option[]>([{ value: "" }, { value: "" }])
-  const [optionFiles, setOptionFiles] = useState<(File | null)[]>([null, null])
+  const [optionFiles, setOptionFiles] = useState<(File | nulZZZl)[]>([null, null])
   const [loading, setLoading] = useState<boolean>(false)
   const [uploadProgress, setUploadProgress] = useState<number>(0)
   const navigate = useNavigate()
