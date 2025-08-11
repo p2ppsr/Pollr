@@ -1,23 +1,18 @@
-import React, {useEffect, useState} from 'react'
-import { createRoot } from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
+import React, {useState} from 'react'
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
+import { Typography, Container, Button, Box, Grid } from '@mui/material'
+import ActivePollsPage from './components/ActivePollsPage'
+import CreatePollForm from './components/CreatePollForm'
+import MyPollsPage from './components/MyPollsPage'
+import CompletedPollsPage from './components/CompletePollsPage'
+import PollDetailPage from './components/PollDetails'
+import { useAsyncEffect } from 'use-async-effect'
 import { WalletClient } from '@bsv/sdk'
-import Pollr from 'pollr-react'
-import {
-  ThemeProvider,
-  createTheme,
-  CssBaseline,
-  Container,
-  Box,
-  Typography
-} from '@mui/material'
-import './App.scss';
 import { checkForMetaNetClient, NoMncModal } from 'metanet-react-prompt'
-import useAsyncEffect from 'use-async-effect'
+import { UserProvider } from "../UserContext"; // Fix import path casing to match actual file name (UserContext.tsx)
 
-const darkTheme = createTheme({ palette: { mode: 'dark' } })
-const App: React.FC = () => {
-const [MNCmissing, setMNCMissing] = useState<boolean>(false)
+function App() {
+  const [MNCmissing, setMNCMissing] = useState<boolean>(false)
 
   useAsyncEffect(async () =>{
     const intervalId = setInterval(async () => {
@@ -36,53 +31,68 @@ const [MNCmissing, setMNCMissing] = useState<boolean>(false)
     }
 
   },[])
-  
-  
-  return(
-  <ThemeProvider theme={darkTheme}>
-    <CssBaseline />
-    <BrowserRouter>
-      <Container
-        maxWidth="md"
-        sx={{
-          height: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          p: 0,
-        }}
-      >
-        <Box
-          component="header"
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            mb: 4,
-            userSelect: 'none',
-          }}
-        >
-          <Box
-            component="img"
-            src="/pollr-logo-white.svg"
-            alt="Pollr logo"
-            sx={{ width: 48, height: 48, mr: 1 }}
-            aria-label="Pollr logo"
-            tabIndex={0}
-          />
-          <Typography
-            variant="h1"
-            component="h1"
-            sx={{ fontSize: '2.5rem', fontWeight: 700 }}
-          >
-            Pollr
-          </Typography>
+  return (
+
+    <Router>
+      <UserProvider>
+      <NoMncModal appName={'Pollr'} open={MNCmissing} onClose={() => setMNCMissing(false)} />
+      <Container maxWidth="sm" style={{ marginTop: '2em', paddingBottom: '80px' }}>
+        <Typography variant="h4" component="h1" gutterBottom align="center">
+          Pollr
+        </Typography>
+
+        <Box sx={{ margin: '2em 0' }}>
+          <Grid container spacing={2} justifyContent="center">
+            <Grid item xs={3}>
+              <Button variant="contained" color="primary" fullWidth component={Link} to="/">
+                Active Polls
+              </Button>
+            </Grid>
+            <Grid item xs={3}>
+              <Button variant="contained" color="primary" fullWidth component={Link} to="/create-poll">
+                Create Poll
+              </Button>
+            </Grid>
+            <Grid item xs={3}>
+              <Button variant="contained" color="primary" fullWidth component={Link} to="/MyPolls">
+                My Polls
+              </Button>
+            </Grid>
+            <Grid item xs={3}>
+              <Button variant="contained" color="primary" fullWidth component={Link} to="/CompletedPolls" style={{ whiteSpace: 'nowrap' }}>
+                Completed Polls
+              </Button>
+            </Grid>
+          </Grid>
         </Box>
-        <Pollr initialPath="/" />
+
+        <Routes>
+          <Route path="/" element={<ActivePollsPage />} />
+          <Route path="/create-poll" element={<CreatePollForm />} />
+          <Route path="/MyPolls" element={<MyPollsPage />} />
+          <Route path="/CompletedPolls" element={<CompletedPollsPage />} />
+          <Route path="/poll/:pollId" element={<PollDetailPage />} />
+        </Routes>
       </Container>
-    </BrowserRouter>
-    <NoMncModal appName={'Pollr'} open={MNCmissing} onClose={() => setMNCMissing(false)} />
-  </ThemeProvider>
-)
+
+      <footer style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        textAlign: 'center',
+        padding: '10px 0'
+      }}>
+        <Typography variant="body2" color="textSecondary">
+          Visit the code on{' '}
+          <a href="https://github.com/p2ppsr/Pollr" target="_blank" rel="noopener noreferrer">
+            GitHub
+          </a>
+        </Typography>
+      </footer>
+      </UserProvider>
+    </Router>
+  )
 }
+
 export default App
