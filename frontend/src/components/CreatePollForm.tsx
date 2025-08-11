@@ -12,7 +12,7 @@ const LoadingBar = styled(LinearProgress)({
   margin: "1em"
 })
 
-const STORAGE_URL = "https://nanostore.babbage.systems"
+const STORAGE_URL = "UHRP-lite.babbage.systems"
 const HOSTING_MINUTES = 525600 // Default: ~1 year
 
 const CreatePollForm: React.FC = () => {
