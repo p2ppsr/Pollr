@@ -13,7 +13,11 @@
       "sizes": "any"
     }
   ],
+  "color_scheme": "dark",
+  "custom_message": "Please sign up to the metanet to use pollr. A decentralized, secure way to create and vote in polls.",
+  "redirected_from": "https://pollr.gg",
   "start_url": ".",
+  "Originator": "https://pollr.gg",
   "display": "standalone",
   "theme_color": "#000000",
   "background_color": "#ffffff",
