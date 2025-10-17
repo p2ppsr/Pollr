@@ -20,8 +20,6 @@ function App() {
       if(hasMNC===0){
         setMNCMissing(true)
       }else{
-        const walletclient = await new WalletClient()
-        await walletclient.waitForAuthentication()
         clearInterval(intervalId)
         setMNCMissing(false)
       }
@@ -38,7 +36,7 @@ function App() {
       <NoMncModal appName={'Pollr'} open={MNCmissing} onClose={() => setMNCMissing(false)} />
       <Container maxWidth="sm" style={{ marginTop: '2em', paddingBottom: '80px' }}>
         <Typography variant="h4" component="h1" gutterBottom align="center">
-          Pollr
+          Pollr-LITE
         </Typography>
 
         <Box sx={{ margin: '2em 0' }}>
