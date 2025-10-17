@@ -35,6 +35,18 @@
         "backend"
       ],
       "frontendHostingMethod": "HTTPS"
+    },
+    {
+      "name": "Chabbage",
+      "provider": "CARS",
+      "CARSCloudURL": "https://cars.babbage.systems",
+      "projectID": "9a52e7a58366e604b67eab9afd2586ac",
+      "network": "mainnet",
+      "deploy": [
+        "frontend",
+        "backend"
+      ],
+      "frontendHostingMethod": "HTTPS"
     }
   ]
 }
