@@ -27,8 +27,8 @@
     {
       "name": "babbage",
       "provider": "CARS",
-      "CARSCloudURL": "https://cars.metanet.club",
-      "projectID": "24848e01930894cb716076507122ed09",
+      "CARSCloudURL": "https://cars.babbage.systems",
+      "projectID": "2b51fd0cfb9b1c97949be827ad8a921c",
       "network": "mainnet",
       "deploy": [
         "frontend",

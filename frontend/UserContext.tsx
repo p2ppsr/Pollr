@@ -70,13 +70,8 @@ export function UserProvider({ children }: PropsWithChildren<{}>) {
       const preset: NetworkPreset = resolvePreset(window.location.hostname, network);
       const allowedPresets = ["local", "mainnet", "testnet"] as const;
       const safePreset = allowedPresets.includes(preset as any) ? preset as "local" | "mainnet" | "testnet" : undefined;
-      let hostOverrides: Record<string, string[]> = {
-        ls_pollr: [
-          'https://backend.24848e01930894cb716076507122ed09.projects.metanet.club',
-        ],
-      };
-      const resolver = await new LookupResolver({ networkPreset: safePreset, hostOverrides});
-      const broadcaster = new TopicBroadcaster(["tm_pollr"], { networkPreset: safePreset, resolver });
+      const resolver = new LookupResolver({ networkPreset: safePreset });
+      const broadcaster = new TopicBroadcaster(["tm_pollr"], { networkPreset: safePreset });
       const pushdrop = new PushDrop(wallet);
       const identity = new IdentityClient(wallet);
 
