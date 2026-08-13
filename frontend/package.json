@@ -5,20 +5,20 @@
   "license": "Open BSV License",
   "dependencies": {
     "@bsv/overlay": "^0.4.6",
-    "@bsv/sdk": "^1.7.6",
+    "@bsv/sdk": "^2.4.0",
     "@bsv/uhrp-react": "^1.0.4",
     "@emotion/react": "^11.10.0",
     "@emotion/styled": "^11.10.0",
     "@mui/material": "^7.0.2",
+    "@p2ppsr/cars-cli": "^1.2.13",
+    "@p2ppsr/lars": "^1.5.11",
     "@types/jest": "^29.5.11",
     "metanet-react-prompt": "^1.0.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.5.3",
     "react-toastify": "^10.0.5",
-    "use-async-effect": "^2.2.7",
-    "@p2ppsr/cars-cli": "^1.2.13",
-    "@p2ppsr/lars": "^1.5.11"
+    "use-async-effect": "^2.2.7"
   },
   "scripts": {
     "start": "webpack serve --config webpack.dev.js",
