@@ -5,7 +5,7 @@
   "license": "Open BSV License",
   "dependencies": {
     "@bsv/overlay": "^2.3.0",
-    "@bsv/sdk": "^2.4.0",
+    "@bsv/sdk": "^2.5.0",
     "@bsv/uhrp-react": "^1.0.4",
     "@emotion/react": "^11.10.0",
     "@emotion/styled": "^11.10.0",
