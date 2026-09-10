@@ -3,6 +3,9 @@
   "private": true,
   "version": "1.0.2",
   "description": "Standard BSV project structure",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "lars": "lars",
     "cars": "cars",
@@ -19,6 +22,6 @@
     "@p2ppsr/lars": "^1.5.11"
   },
   "overrides": {
-    "@bsv/sdk": "2.4.0"
+    "@bsv/sdk": "2.5.0"
   }
 }
