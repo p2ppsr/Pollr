@@ -65,6 +65,10 @@ jobs:
             "${storage_args[@]}" \
             --min 1 \
             --topup-to 250000
+          cars project domain:frontend pollr.gg 1 \
+            --key "$CARS_PRIVATE_KEY" \
+            --network mainnet \
+            "${storage_args[@]}"
 
       - name: Release CARS artifact
         env:

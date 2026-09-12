@@ -18,8 +18,8 @@
   "author": "",
   "license": "SEE LICENSE IN LICENSE.txt",
   "devDependencies": {
-    "@p2ppsr/cars-cli": "^1.2.13",
-    "@p2ppsr/lars": "^1.5.11"
+    "@p2ppsr/cars-cli": "^1.2.33",
+    "@p2ppsr/lars": "^1.5.12"
   },
   "overrides": {
     "@bsv/sdk": "2.5.0"
