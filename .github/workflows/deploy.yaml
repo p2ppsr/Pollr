@@ -1,27 +1,99 @@
-name: Deployment
+name: Deploy with CARS
+
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
+
+concurrency:
+  group: pollr-cars-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
-  build:
-    name: Deploy
+  deploy:
+    name: Verify and deploy
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CARS_REQUEST_TIMEOUT_MS: "300000"
+      CARS_DEPLOYMENT_TIMEOUT_MS: "420000"
+
     steps:
       - name: Check out code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v6
         with:
           node-version: 22
+          cache: npm
 
-      - name: Install CARS globally
-        run: npm i -g @p2ppsr/cars-cli@latest
+      - name: Install locked deployment dependencies
+        run: npm ci
 
-      - name: Build artifact
+      - name: Install current CARS CLI
+        run: npm install --global @p2ppsr/cars-cli@latest
+
+      - name: Build CARS artifact
         run: cars build 1
 
-      - name: Release artifact
-        run: cars release now 1 --key "${{ secrets.CARS_PRIVATE_KEY }}"
+      - name: Check CARS transport and project balance
+        env:
+          CARS_PRIVATE_KEY: ${{ secrets.CARS_PRIVATE_KEY }}
+          CARS_WALLET_STORAGE: ${{ secrets.CARS_WALLET_STORAGE }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CARS_PRIVATE_KEY:-}" ]; then
+            echo "CARS_PRIVATE_KEY repository secret is required." >&2
+            exit 1
+          fi
+          storage_args=()
+          if [ -n "${CARS_WALLET_STORAGE:-}" ]; then
+            storage_args=(--storage "$CARS_WALLET_STORAGE")
+          fi
+          cars doctor 1 \
+            --key "$CARS_PRIVATE_KEY" \
+            --network mainnet \
+            "${storage_args[@]}"
+          cars project ensure-balance 1 \
+            --key "$CARS_PRIVATE_KEY" \
+            --network mainnet \
+            "${storage_args[@]}" \
+            --min 1 \
+            --topup-to 250000
+
+      - name: Release CARS artifact
+        env:
+          CARS_PRIVATE_KEY: ${{ secrets.CARS_PRIVATE_KEY }}
+          CARS_WALLET_STORAGE: ${{ secrets.CARS_WALLET_STORAGE }}
+        run: |
+          set -euo pipefail
+          storage_args=()
+          if [ -n "${CARS_WALLET_STORAGE:-}" ]; then
+            storage_args=(--storage "$CARS_WALLET_STORAGE")
+          fi
+          for attempt in 1 2 3; do
+            log_file="cars-release-attempt-${attempt}.log"
+            set +e
+            cars release now 1 \
+              --key "$CARS_PRIVATE_KEY" \
+              --network mainnet \
+              "${storage_args[@]}" 2>&1 | tee "$log_file"
+            status=${PIPESTATUS[0]}
+            set -e
+            if [ "$status" -eq 0 ] && grep -q "CARS_RELEASE_SUCCESS" "$log_file"; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              if [ "$status" -eq 0 ]; then
+                echo "CARS release succeeded without a CARS_RELEASE_SUCCESS marker." >&2
+                exit 1
+              fi
+              exit "$status"
+            fi
+            sleep "$((attempt * 20))"
+          done
